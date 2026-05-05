@@ -102,3 +102,134 @@ class TestOCREndpoint:
             assert response.status_code == 200
             data = response.json()
             assert data["results"] == []
+
+    def test_structured_ocr_success_with_json(self, sample_text_image_bytes):
+        import base64
+        b64 = base64.b64encode(sample_text_image_bytes).decode()
+        structured_result = {
+            "results": [
+                {
+                    "text": "電材・工具一式（新宿オフィス改修）",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 0], "bottom_right": [100, 20]},
+                    "bbox_normalized": {"top_left": [0.0, 0.0], "bottom_right": [0.5, 0.2]},
+                    "type": "text",
+                    "polygon": [[0, 0], [100, 0], [100, 20], [0, 20]],
+                },
+                {
+                    "text": "請求書番号: KS-2026-0315-0842",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 21], "bottom_right": [120, 40]},
+                    "bbox_normalized": {"top_left": [0.0, 0.21], "bottom_right": [0.6, 0.4]},
+                    "type": "text",
+                    "polygon": [[0, 21], [120, 21], [120, 40], [0, 40]],
+                },
+                {
+                    "text": "請求日: 2026-03-15",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 41], "bottom_right": [110, 60]},
+                    "bbox_normalized": {"top_left": [0.0, 0.41], "bottom_right": [0.55, 0.6]},
+                    "type": "text",
+                    "polygon": [[0, 41], [110, 41], [110, 60], [0, 60]],
+                },
+                {
+                    "text": "支払期日: 2026-04-14",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 61], "bottom_right": [110, 80]},
+                    "bbox_normalized": {"top_left": [0.0, 0.61], "bottom_right": [0.55, 0.8]},
+                    "type": "text",
+                    "polygon": [[0, 61], [110, 61], [110, 80], [0, 80]],
+                },
+                {
+                    "text": "V-34821 株式会社 山陽電材",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 81], "bottom_right": [140, 100]},
+                    "bbox_normalized": {"top_left": [0.0, 0.81], "bottom_right": [0.7, 1.0]},
+                    "type": "text",
+                    "polygon": [[0, 81], [140, 81], [140, 100], [0, 100]],
+                },
+                {
+                    "text": "請求条件: 月末締め翌月末払い",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 101], "bottom_right": [140, 120]},
+                    "bbox_normalized": {"top_left": [0.0, 1.01], "bottom_right": [0.7, 1.2]},
+                    "type": "text",
+                    "polygon": [[0, 101], [140, 101], [140, 120], [0, 120]],
+                },
+                {
+                    "text": "2026-03-15 VCTケーブル 巻 数量: 2 単価: 45000 10% 金額: 90000",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 121], "bottom_right": [200, 140]},
+                    "bbox_normalized": {"top_left": [0.0, 1.21], "bottom_right": [1.0, 1.4]},
+                    "type": "text",
+                    "polygon": [[0, 121], [200, 121], [200, 140], [0, 140]],
+                },
+                {
+                    "text": "MISC-001 現場消耗品 式 数量: 1 単価: 15000 10% 金額: 15000",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 141], "bottom_right": [200, 160]},
+                    "bbox_normalized": {"top_left": [0.0, 1.41], "bottom_right": [1.0, 1.6]},
+                    "type": "text",
+                    "polygon": [[0, 141], [200, 141], [200, 160], [0, 160]],
+                },
+                {
+                    "text": "消費税 10% 10500",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 161], "bottom_right": [100, 180]},
+                    "bbox_normalized": {"top_left": [0.0, 1.61], "bottom_right": [0.5, 1.8]},
+                    "type": "text",
+                    "polygon": [[0, 161], [100, 161], [100, 180], [0, 180]],
+                },
+                {
+                    "text": "請求金額: 115500",
+                    "confidence": 0.99,
+                    "bbox": {"top_left": [0, 181], "bottom_right": [100, 200]},
+                    "bbox_normalized": {"top_left": [0.0, 1.81], "bottom_right": [0.5, 2.0]},
+                    "type": "text",
+                    "polygon": [[0, 181], [100, 181], [100, 200], [0, 200]],
+                },
+            ],
+            "meta": {
+                "engine": "paddleocr",
+                "engine_version": "3.5.0",
+                "model": "PP-OCRv4-japan",
+                "lang": "japan",
+                "inference_time_ms": 500,
+                "image_width": 200,
+                "image_height": 100,
+                "was_resized": False,
+            },
+            "summary": {"total_lines": 10, "total_characters": 120, "avg_confidence": 0.99},
+        }
+        with patch('app.routers.ocr.run_ocr', return_value=structured_result):
+            response = client.post(
+                "/ocr/structured/json",
+                json={"image": b64, "lang": "japan", "image_url": "invoices/2026/03/test.pdf"},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["data"]["title"] == "電材・工具一式（新宿オフィス改修）"
+            assert data["data"]["originalNumber"] == "KS-2026-0315-0842"
+            assert data["data"]["vendorCode"] == "V-34821"
+            assert data["data"]["vendorName"] == "V-34821 株式会社 山陽電材"
+            assert data["data"]["totalAmount"] == 115500
+            assert data["data"]["inputCostImages"][0]["imageUrl"] == "invoices/2026/03/test.pdf"
+            assert len(data["data"]["inputCostItems"]) >= 2
+            assert data["rawResults"]
+
+    def test_structured_ocr_blank_image(self, blank_image_bytes):
+        with patch('app.routers.ocr.validate_and_preprocess', return_value=(blank_image_bytes, False)), \
+             patch('app.routers.ocr.run_ocr', return_value={
+                 "results": [],
+                 "meta": {"engine": "paddleocr", "engine_version": "3.5.0", "model": "test", "lang": "en",
+                          "inference_time_ms": 10, "image_width": 100, "image_height": 100, "was_resized": False},
+                 "summary": {"total_lines": 0, "total_characters": 0, "avg_confidence": 0.0}
+             }):
+            response = client.post(
+                "/ocr/structured",
+                files={"file": ("blank.jpg", blank_image_bytes, "image/jpeg")},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["data"]["inputCostItems"] == []
+            assert data["rawResults"] == []

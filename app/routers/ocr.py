@@ -10,14 +10,16 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTT
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.schemas.requests import BatchOCRRequest, OCRRequest
+from app.schemas.requests import BatchOCRRequest, OCRRequest, StructuredOCRRequest
 from app.schemas.responses import (
     BatchOCRResponse,
     ErrorResponse,
     ImageOCRResult,
     OCRResponse,
+    StructuredOCRResponse,
 )
 from app.services.job_store import get_job_store
+from app.services.structured_extraction import build_structured_response
 from app.utils.image_utils import base64_to_bytes, validate_and_preprocess
 from app.utils.metrics import record_request
 from app.auth import verify_api_key
@@ -64,13 +66,8 @@ def process_single_image(
     return result
 
 
-def build_ocr_response(
-    result: dict,
-    request_id: str,
-    status: str = "success",
-) -> OCRResponse:
-    """Build OCR response from result dictionary."""
-    from app.schemas.responses import BBox, OCRMeta, OCRResult, OCRSummary
+def _build_ocr_results(result: dict) -> list:
+    from app.schemas.responses import BBox, OCRResult
 
     ocr_results = []
     for r in result.get("results", []):
@@ -96,6 +93,16 @@ def build_ocr_response(
                 polygon=r.get("polygon", []),
             )
         )
+    return ocr_results
+
+
+def build_ocr_response(
+    result: dict,
+    request_id: str,
+    status: str = "success",
+) -> OCRResponse:
+    """Build OCR response from result dictionary."""
+    from app.schemas.responses import OCRMeta, OCRSummary
 
     meta_data = result.get("meta", {})
     summary_data = result.get("summary", {})
@@ -113,13 +120,329 @@ def build_ocr_response(
             image_height=meta_data.get("image_height"),
             was_resized=meta_data.get("was_resized", False),
         ),
-        results=ocr_results,
+        results=_build_ocr_results(result),
         summary=OCRSummary(
             total_lines=summary_data.get("total_lines", 0),
             total_characters=summary_data.get("total_characters", 0),
             avg_confidence=summary_data.get("avg_confidence", 0.0),
         ),
     )
+
+
+def build_structured_ocr_response(
+    result: dict,
+    request_id: str,
+    image_url: str | None = None,
+) -> StructuredOCRResponse:
+    return build_structured_response(
+        raw_result=result,
+        raw_ocr_results=_build_ocr_results(result),
+        request_id=request_id,
+        image_url=image_url,
+    )
+
+
+def _error_response(status_code: int, error: str, detail: str, request_id: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(
+            error=error,
+            detail=detail,
+            request_id=request_id,
+        ).model_dump(),
+    )
+
+
+def _validate_image_size(image_bytes: bytes, request_id: str, settings, empty_detail: str) -> JSONResponse | None:
+    if len(image_bytes) == 0:
+        return _error_response(400, "image_empty", empty_detail, request_id)
+    if len(image_bytes) > settings.max_image_size_bytes:
+        return _error_response(
+            413,
+            "file_too_large",
+            f"Image size {len(image_bytes)} exceeds maximum {settings.max_image_size_bytes}",
+            request_id,
+        )
+    return None
+
+
+def _handle_processing_error(error_msg: str, request_id: str, settings, empty_detail: str) -> JSONResponse:
+    if "image_empty" in error_msg:
+        return _error_response(400, "image_empty", empty_detail, request_id)
+    if "file_too_large" in error_msg:
+        return _error_response(
+            413,
+            "file_too_large",
+            f"Image exceeds maximum size of {settings.MAX_IMAGE_SIZE_MB}MB",
+            request_id,
+        )
+    if "unsupported_format" in error_msg:
+        return _error_response(
+            415,
+            "unsupported_format",
+            "Unsupported image format. Allowed: JPEG, PNG, BMP, TIFF, WebP",
+            request_id,
+        )
+    if "Invalid base64" in error_msg:
+        return _error_response(400, "invalid_base64", "Invalid base64 encoded image data", request_id)
+    return _error_response(422, "unreadable_image", f"Cannot process image: {error_msg}", request_id)
+
+
+def _handle_ocr_error(result: dict, request_id: str) -> JSONResponse | None:
+    if "error" in result:
+        return _error_response(
+            500,
+            result["error"],
+            result.get("message", "OCR processing failed"),
+            request_id,
+        )
+    return None
+
+
+def _record_and_return(path: str, lang: str, start_time: float, payload):
+    duration = time.time() - start_time
+    record_request(path, lang, "success", duration)
+    return JSONResponse(content=payload.model_dump(by_alias=True, mode="json"))
+
+
+def _record_error(path: str, lang: str, start_time: float):
+    duration = time.time() - start_time
+    record_request(path, lang, "error", duration)
+
+
+@router.post(
+    "/structured",
+    response_model=StructuredOCRResponse,
+    dependencies=[Depends(verify_api_key)],
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        413: {"model": ErrorResponse, "description": "Payload Too Large"},
+        415: {"model": ErrorResponse, "description": "Unsupported Media Type"},
+        422: {"model": ErrorResponse, "description": "Unprocessable Entity"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
+)
+async def ocr_single_structured(
+    file: UploadFile = File(..., description="Image file to process"),
+    x_lang: Optional[str] = Header(None, alias="X-Lang"),
+    x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
+):
+    settings = get_settings()
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    lang = x_lang or settings.MODEL_LANG
+    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+
+    try:
+        image_bytes = await file.read()
+        size_error = _validate_image_size(image_bytes, request_id, settings, "Image file is empty")
+        if size_error:
+            return size_error
+        result = process_single_image(
+            image_bytes,
+            lang=lang,
+            min_confidence=min_confidence,
+            include_polygon=settings.INCLUDE_POLYGON,
+        )
+        ocr_error = _handle_ocr_error(result, request_id)
+        if ocr_error:
+            return ocr_error
+        response = build_structured_ocr_response(result, request_id, image_url=file.filename)
+        return _record_and_return("/ocr/structured", lang, start_time, response)
+    except ValueError as e:
+        _record_error("/ocr/structured", lang, start_time)
+        return _handle_processing_error(str(e), request_id, settings, "Image file is empty")
+    except Exception as e:
+        _record_error("/ocr/structured", lang, start_time)
+        logger.error(f"Structured OCR request failed: {e}")
+        return _error_response(500, "internal_error", "Internal server error during OCR processing", request_id)
+
+
+@router.post(
+    "/structured/json",
+    response_model=StructuredOCRResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        413: {"model": ErrorResponse, "description": "Payload Too Large"},
+        415: {"model": ErrorResponse, "description": "Unsupported Media Type"},
+        422: {"model": ErrorResponse, "description": "Unprocessable Entity"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
+)
+async def ocr_single_structured_json(
+    request: StructuredOCRRequest,
+    x_lang: Optional[str] = Header(None, alias="X-Lang"),
+    x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
+):
+    settings = get_settings()
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    lang = x_lang or request.lang or settings.MODEL_LANG
+    min_confidence = x_min_confidence or request.min_confidence
+
+    try:
+        image_bytes = base64_to_bytes(request.image)
+        size_error = _validate_image_size(image_bytes, request_id, settings, "Image data is empty")
+        if size_error:
+            return size_error
+        result = process_single_image(
+            image_bytes,
+            lang=lang,
+            min_confidence=min_confidence,
+            include_polygon=request.include_polygon,
+        )
+        ocr_error = _handle_ocr_error(result, request_id)
+        if ocr_error:
+            return ocr_error
+        response = build_structured_ocr_response(result, request_id, image_url=request.image_url)
+        return _record_and_return("/ocr/structured/json", lang, start_time, response)
+    except ValueError as e:
+        _record_error("/ocr/structured/json", lang, start_time)
+        return _handle_processing_error(str(e), request_id, settings, "Image data is empty")
+    except Exception as e:
+        _record_error("/ocr/structured/json", lang, start_time)
+        logger.error(f"Structured OCR JSON request failed: {e}")
+        return _error_response(500, "internal_error", "Internal server error during OCR processing", request_id)
+
+
+@router.post(
+    "",
+    response_model=OCRResponse,
+    dependencies=[Depends(verify_api_key)],
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        413: {"model": ErrorResponse, "description": "Payload Too Large"},
+        415: {"model": ErrorResponse, "description": "Unsupported Media Type"},
+        422: {"model": ErrorResponse, "description": "Unprocessable Entity"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
+)
+async def ocr_single(
+    file: UploadFile = File(..., description="Image file to process"),
+    x_lang: Optional[str] = Header(None, alias="X-Lang"),
+    x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
+    x_layout_analysis: Optional[bool] = Header(None, alias="X-Layout-Analysis"),
+):
+    """
+    Process a single image with OCR.
+
+    Accepts image file upload with optional headers for configuration.
+    """
+    settings = get_settings()
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    lang = x_lang or settings.MODEL_LANG
+    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+
+    try:
+        # Read file content
+        image_bytes = await file.read()
+
+        # Validate file size
+        if len(image_bytes) == 0:
+            return JSONResponse(
+                status_code=400,
+                content=ErrorResponse(
+                    error="image_empty",
+                    detail="Image file is empty",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+
+        if len(image_bytes) > settings.max_image_size_bytes:
+            return JSONResponse(
+                status_code=413,
+                content=ErrorResponse(
+                    error="file_too_large",
+                    detail=f"Image size {len(image_bytes)} exceeds maximum {settings.max_image_size_bytes}",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+
+        # Process image
+        result = process_single_image(
+            image_bytes,
+            lang=lang,
+            min_confidence=min_confidence,
+            include_polygon=settings.INCLUDE_POLYGON,
+        )
+
+        # Check for error
+        if "error" in result:
+            return JSONResponse(
+                status_code=500,
+                content=ErrorResponse(
+                    error=result["error"],
+                    detail=result.get("message", "OCR processing failed"),
+                    request_id=request_id,
+                ).model_dump(),
+            )
+
+        # Build response
+        response = build_ocr_response(result, request_id)
+
+        # Record metrics
+        duration = time.time() - start_time
+        record_request("/ocr", lang, "success", duration)
+
+        return response
+
+    except ValueError as e:
+        error_msg = str(e)
+        duration = time.time() - start_time
+
+        if "image_empty" in error_msg:
+            record_request("/ocr", lang, "error", duration)
+            return JSONResponse(
+                status_code=400,
+                content=ErrorResponse(
+                    error="image_empty",
+                    detail="Image file is empty",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+        elif "file_too_large" in error_msg:
+            record_request("/ocr", lang, "error", duration)
+            return JSONResponse(
+                status_code=413,
+                content=ErrorResponse(
+                    error="file_too_large",
+                    detail=f"Image exceeds maximum size of {settings.MAX_IMAGE_SIZE_MB}MB",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+        elif "unsupported_format" in error_msg:
+            record_request("/ocr", lang, "error", duration)
+            return JSONResponse(
+                status_code=415,
+                content=ErrorResponse(
+                    error="unsupported_format",
+                    detail="Unsupported image format. Allowed: JPEG, PNG, BMP, TIFF, WebP",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+        else:
+            record_request("/ocr", lang, "error", duration)
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(
+                    error="unreadable_image",
+                    detail=f"Cannot process image: {error_msg}",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+    except Exception as e:
+        duration = time.time() - start_time
+        record_request("/ocr", lang, "error", duration)
+        logger.error(f"OCR request failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error="internal_error",
+                detail="Internal server error during OCR processing",
+                request_id=request_id,
+            ).model_dump(),
+        )
 
 
 @router.post(

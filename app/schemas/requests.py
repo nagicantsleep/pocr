@@ -5,6 +5,43 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
+class StructuredOCRRequest(BaseModel):
+    image: str = Field(
+        ...,
+        description="Base64-encoded image data or data URI",
+        min_length=1,
+    )
+    image_url: Optional[str] = Field(
+        default=None,
+        description="Original image URL or storage path for structured output",
+    )
+    lang: str = Field(
+        default="auto",
+        description="Language code for OCR (auto, en, ch, japan, korean, etc.)",
+    )
+    min_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Minimum confidence threshold for results",
+    )
+    layout_analysis: bool = Field(
+        default=False,
+        description="Enable layout analysis for document structure detection",
+    )
+    include_polygon: bool = Field(
+        default=True,
+        description="Include polygon points in OCR processing",
+    )
+
+    @field_validator("image")
+    @classmethod
+    def validate_structured_image_data(cls, v: str) -> str:
+        if not v or len(v.strip()) == 0:
+            raise ValueError("image data cannot be empty")
+        return v.strip()
+
+
 class OCRRequest(BaseModel):
     """Request schema for single OCR operation."""
 

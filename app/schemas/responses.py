@@ -1,9 +1,9 @@
 """Pydantic response schemas for OCR API."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BBox(BaseModel):
@@ -116,6 +116,104 @@ class OCRResponse(BaseModel):
     summary: OCRSummary = Field(
         default_factory=OCRSummary,
         description="Summary statistics",
+    )
+
+
+class StructuredTax(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(..., description="Tax label")
+    tax_rate: float = Field(..., ge=0.0, description="Tax rate as decimal", alias="taxRate")
+    taxable_amount: int = Field(..., ge=0, description="Amount before tax", alias="taxableAmount")
+    tax_amount: int = Field(..., ge=0, description="Tax amount", alias="taxAmount")
+
+
+class StructuredInputCostImage(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    image_url: str = Field(..., description="Original image URL or storage path", alias="imageUrl")
+    presigned_image_url: Optional[str] = Field(
+        default=None,
+        description="Temporary signed URL for image access",
+        alias="presignedImageUrl",
+    )
+
+
+class StructuredInputCostItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    transaction_date: Optional[date] = Field(
+        default=None,
+        description="Transaction date for the line item",
+        alias="transactionDate",
+    )
+    item_code: Optional[str] = Field(default=None, description="Vendor item code", alias="itemCode")
+    item_name: str = Field(..., description="Line item description", alias="itemName")
+    unit: Optional[str] = Field(default=None, description="Unit name")
+    quantity: Optional[float] = Field(default=None, ge=0, description="Quantity")
+    price: Optional[int] = Field(default=None, ge=0, description="Unit price")
+    tax_rate: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Tax rate as decimal",
+        alias="taxRate",
+    )
+    description: Optional[str] = Field(default=None, description="Supplemental note")
+    amount: Optional[int] = Field(default=None, ge=0, description="Line total")
+
+
+class StructuredOCRData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: Optional[str] = Field(default=None, description="Document title")
+    original_number: Optional[str] = Field(
+        default=None,
+        description="Original document number",
+        alias="originalNumber",
+    )
+    input_cost_type: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Input cost document type",
+        alias="inputCostType",
+    )
+    issue_date: Optional[date] = Field(default=None, description="Issue date", alias="issueDate")
+    payment_date: Optional[date] = Field(default=None, description="Payment date", alias="paymentDate")
+    vendor_id: Optional[str] = Field(default=None, description="Matched vendor ID", alias="vendorId")
+    vendor_code: Optional[str] = Field(default=None, description="Vendor code", alias="vendorCode")
+    vendor_name: Optional[str] = Field(default=None, description="Vendor name", alias="vendorName")
+    payment_method: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Payment method code",
+        alias="paymentMethod",
+    )
+    description: Optional[str] = Field(default=None, description="Document note")
+    total_amount: Optional[int] = Field(default=None, ge=0, description="Grand total", alias="totalAmount")
+    taxes: list[StructuredTax] = Field(default_factory=list, description="Tax breakdown")
+    input_cost_images: list[StructuredInputCostImage] = Field(
+        default_factory=list,
+        description="Attached source images",
+        alias="inputCostImages",
+    )
+    input_cost_items: list[StructuredInputCostItem] = Field(
+        default_factory=list,
+        description="Structured line items",
+        alias="inputCostItems",
+    )
+
+
+class StructuredOCRResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    request_id: str = Field(..., description="Unique request identifier", alias="requestId")
+    status: str = Field(default="success", description="Processing status")
+    meta: OCRMeta = Field(..., description="Processing metadata")
+    data: StructuredOCRData = Field(..., description="Structured document output")
+    raw_results: list[OCRResult] = Field(
+        default_factory=list,
+        description="Underlying OCR detections used for extraction",
+        alias="rawResults",
     )
 
 
