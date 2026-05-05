@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  ocr-api-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paddleocr-api-cpu
+    ports:
+      - "8000:8000"
+    environment:
+      - PADDLE_DEVICE=cpu
+      - MODEL_LANG=en
+      - MAX_IMAGE_SIZE_MB=20
+      - MAX_BATCH_SIZE=20
+      - LOG_LEVEL=INFO
+      - JOB_DIR=/tmp/ocr_jobs
+    volumes:
+      - job-data:/tmp/ocr_jobs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  job-data:
