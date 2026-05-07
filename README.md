@@ -39,11 +39,11 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ### Docker
 
 ```bash
-# Build and run CPU version
-docker-compose up --build
+# Build and run CPU-only deployment
+docker-compose -f docker-compose.cpu.yml up --build
 
-# Or build with GPU support (requires nvidia-docker)
-docker-compose --profile gpu up --build
+# Build and run GPU-only deployment (requires NVIDIA container runtime)
+docker-compose -f docker-compose.gpu.yml up --build
 ```
 
 ## API Endpoints
@@ -250,8 +250,9 @@ pocr/
 │   ├── test_ocr.py
 │   ├── test_batch.py
 │   └── test_async_jobs.py
-├── docker-compose.yml
-├── Dockerfile
+├── docker-compose.app.yml
+├── docker-compose.cpu.yml
+├── Dockerfile.cpu
 ├── Dockerfile.gpu
 ├── requirements.txt
 ├── requirements-gpu.txt

@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   ocr-api-cpu:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.cpu
     container_name: paddleocr-api-cpu
     ports:
       - "8000:8000"
@@ -16,13 +14,36 @@ services:
       - LOG_LEVEL=INFO
       - JOB_DIR=/tmp/ocr_jobs
     volumes:
-      - job-data:/tmp/ocr_jobs
+      - ocr_jobs:/tmp/ocr_jobs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: paddleocr-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    profiles:
+      - with-redis
+
 volumes:
-  job-data:
+  ocr_jobs:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: paddleocr-network
