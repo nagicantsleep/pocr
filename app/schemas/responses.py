@@ -120,7 +120,7 @@ class OCRResponse(BaseModel):
 
 
 class StructuredTax(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str = Field(..., description="Tax label")
     tax_rate: float = Field(..., ge=0.0, description="Tax rate as decimal", alias="taxRate")
@@ -129,7 +129,7 @@ class StructuredTax(BaseModel):
 
 
 class StructuredInputCostImage(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     image_url: str = Field(..., description="Original image URL or storage path", alias="imageUrl")
     presigned_image_url: Optional[str] = Field(
@@ -140,7 +140,7 @@ class StructuredInputCostImage(BaseModel):
 
 
 class StructuredInputCostItem(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     transaction_date: Optional[date] = Field(
         default=None,
@@ -163,7 +163,7 @@ class StructuredInputCostItem(BaseModel):
 
 
 class StructuredOCRData(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     title: Optional[str] = Field(default=None, description="Document title")
     original_number: Optional[str] = Field(
@@ -171,31 +171,22 @@ class StructuredOCRData(BaseModel):
         description="Original document number",
         alias="originalNumber",
     )
-    input_cost_type: Optional[int] = Field(
+    input_cost_type: Optional[str] = Field(
         default=None,
-        ge=1,
-        description="Input cost document type",
+        description="Input cost document type label or enum description found in the image",
         alias="inputCostType",
     )
     issue_date: Optional[date] = Field(default=None, description="Issue date", alias="issueDate")
     payment_date: Optional[date] = Field(default=None, description="Payment date", alias="paymentDate")
-    vendor_id: Optional[str] = Field(default=None, description="Matched vendor ID", alias="vendorId")
-    vendor_code: Optional[str] = Field(default=None, description="Vendor code", alias="vendorCode")
     vendor_name: Optional[str] = Field(default=None, description="Vendor name", alias="vendorName")
-    payment_method: Optional[int] = Field(
+    payment_method: Optional[str] = Field(
         default=None,
-        ge=1,
-        description="Payment method code",
+        description="Payment method label or enum description found in the image",
         alias="paymentMethod",
     )
     description: Optional[str] = Field(default=None, description="Document note")
     total_amount: Optional[int] = Field(default=None, ge=0, description="Grand total", alias="totalAmount")
     taxes: list[StructuredTax] = Field(default_factory=list, description="Tax breakdown")
-    input_cost_images: list[StructuredInputCostImage] = Field(
-        default_factory=list,
-        description="Attached source images",
-        alias="inputCostImages",
-    )
     input_cost_items: list[StructuredInputCostItem] = Field(
         default_factory=list,
         description="Structured line items",
@@ -204,7 +195,7 @@ class StructuredOCRData(BaseModel):
 
 
 class StructuredOCRResponse(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     request_id: str = Field(..., description="Unique request identifier", alias="requestId")
     status: str = Field(default="success", description="Processing status")

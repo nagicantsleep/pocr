@@ -1,13 +1,11 @@
 {
   "title": "電材・工具一式（新宿オフィス改修）",
   "originalNumber": "KS-2026-0315-0842",
-  "inputCostType": 1, //1. invoice 2. delivery slip, 3. sale slip 4. receipt 5. other
+  "inputCostType": "1. invoice 2. delivery slip, 3. sale slip 4. receipt 5. other",
   "issueDate": "2026-03-15",
   "paymentDate": "2026-04-14",
-  "vendorId": "019b4c2e-7a00-7f2a-8000-000000000201",
-  "vendorCode": "V-34821",
   "vendorName": "株式会社 山陽電材",
-  "paymentMethod": 3, //1. // Purchase (Cash/Credit Card - One-time) 2. Purchase (Cash/Credit Card - Installments) 3.Purchase (Invoice - One-time) 4.Purchase (Invoice - Installments) 5.Rental (Invoice) 6.Rental (Auto Debit/Credit Card) 7.Lease (Invoice) 8.Lease (Auto Debit/Credit Card)
+  "paymentMethod": "1.Purchase (Cash/Credit Card - One-time) 2. Purchase (Cash/Credit Card - Installments) 3.Purchase (Invoice - One-time) 4.Purchase (Invoice - Installments) 5.Rental (Invoice) 6.Rental (Auto Debit/Credit Card) 7.Lease (Invoice) 8.Lease (Auto Debit/Credit Card)",
   "description": "請求条件：月末締め翌月末払い。送付先は現場事務所。",
   "totalAmount": 115500,
   "taxes": [
@@ -16,12 +14,6 @@
       "taxRate": 0.1,
       "taxableAmount": 105000,
       "taxAmount": 10500
-    }
-  ],
-  "inputCostImages": [
-    {
-      "imageUrl": "invoices/2026/03/019b4c2e_scan.pdf",
-      "presignedImageUrl": "https://storage.example.com/presigned/019b4c2e_scan.pdf?sig=..."
     }
   ],
   "inputCostItems": [

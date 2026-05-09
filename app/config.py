@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     RATE_LIMIT: str = "100/minute"
     API_KEY: Optional[str] = None
 
+    # Structured standardization
+    STANDARDIZER_PROVIDER: str = "heuristic"
+    STANDARDIZER_MODEL: str = "openrouter/owl-alpha"
+    STANDARDIZER_API_KEY: Optional[str] = None
+    STANDARDIZER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    STANDARDIZER_SITE_URL: Optional[str] = None
+    STANDARDIZER_APP_NAME: str = "pocr"
+
     # Async Processing
     ASYNC_WORKERS: int = 4
 

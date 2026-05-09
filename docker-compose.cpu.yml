@@ -13,6 +13,12 @@ services:
       - MAX_BATCH_SIZE=20
       - LOG_LEVEL=INFO
       - JOB_DIR=/tmp/ocr_jobs
+      - STANDARDIZER_PROVIDER=${STANDARDIZER_PROVIDER:-heuristic}
+      - STANDARDIZER_MODEL=${STANDARDIZER_MODEL:-openrouter/owl-alpha}
+      - STANDARDIZER_API_KEY=${STANDARDIZER_API_KEY:-}
+      - STANDARDIZER_BASE_URL=${STANDARDIZER_BASE_URL:-https://openrouter.ai/api/v1}
+      - STANDARDIZER_SITE_URL=${STANDARDIZER_SITE_URL:-}
+      - STANDARDIZER_APP_NAME=${STANDARDIZER_APP_NAME:-pocr}
     volumes:
       - ocr_jobs:/tmp/ocr_jobs
     healthcheck:

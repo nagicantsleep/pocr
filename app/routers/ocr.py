@@ -19,7 +19,7 @@ from app.schemas.responses import (
     StructuredOCRResponse,
 )
 from app.services.job_store import get_job_store
-from app.services.structured_extraction import build_structured_response
+from app.services.structured_extraction import StandardizerError, build_structured_response
 from app.utils.image_utils import base64_to_bytes, validate_and_preprocess
 from app.utils.metrics import record_request
 from app.auth import verify_api_key
@@ -201,7 +201,7 @@ def _handle_ocr_error(result: dict, request_id: str) -> JSONResponse | None:
 def _record_and_return(path: str, lang: str, start_time: float, payload):
     duration = time.time() - start_time
     record_request(path, lang, "success", duration)
-    return JSONResponse(content=payload.model_dump(by_alias=True, mode="json"))
+    return JSONResponse(content=payload.model_dump(by_alias=True, mode="json", exclude_none=True))
 
 
 def _record_error(path: str, lang: str, start_time: float):
@@ -223,6 +223,8 @@ def _record_error(path: str, lang: str, start_time: float):
 )
 async def ocr_single_structured(
     file: UploadFile = File(..., description="Image file to process"),
+    lang_form: Optional[str] = Form(None, alias="lang"),
+    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
 ):
@@ -251,6 +253,10 @@ async def ocr_single_structured(
     except ValueError as e:
         _record_error("/ocr/structured", lang, start_time)
         return _handle_processing_error(str(e), request_id, settings, "Image file is empty")
+    except StandardizerError as e:
+        _record_error("/ocr/structured", lang, start_time)
+        logger.error(f"Structured standardization failed: {e}")
+        return _error_response(502, "standardizer_failed", str(e), request_id)
     except Exception as e:
         _record_error("/ocr/structured", lang, start_time)
         logger.error(f"Structured OCR request failed: {e}")
@@ -298,6 +304,10 @@ async def ocr_single_structured_json(
     except ValueError as e:
         _record_error("/ocr/structured/json", lang, start_time)
         return _handle_processing_error(str(e), request_id, settings, "Image data is empty")
+    except StandardizerError as e:
+        _record_error("/ocr/structured/json", lang, start_time)
+        logger.error(f"Structured JSON standardization failed: {e}")
+        return _error_response(502, "standardizer_failed", str(e), request_id)
     except Exception as e:
         _record_error("/ocr/structured/json", lang, start_time)
         logger.error(f"Structured OCR JSON request failed: {e}")
@@ -730,6 +740,8 @@ async def ocr_single_json(
 )
 async def ocr_batch(
     files: List[UploadFile] = File(..., description="Image files to process"),
+    lang_form: Optional[str] = Form(None, alias="lang"),
+    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
 ):

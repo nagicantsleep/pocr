@@ -20,6 +20,7 @@ implemented until tests or validation evidence exist.
 | Story | Contract | Unit | Integration | E2E | Platform | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `docs/stories/US-001-cpu-ocr-fixtures-return-text.md` | CPU OCR fixture images return non-empty text results | yes | yes | no | yes | implemented | `compileall app tests`; focused `normalize_ocr_results` check; CPU container `/ocr` smoke for `tests/fixtures/img*.png` returned 24-47 lines per image |
+| `docs/stories/US-002-structured-standardizer/overview.md` | Structured OCR output follows `sample.json` with `inputCostItems` and validates before response | yes | yes | no | yes | implemented | `compileall app tests`; direct standardizer check; CPU container `/ocr` and `/ocr/structured` fixture smoke wrote `out/img*.json` and `out/img*.structured.json` |
 
 ## Evidence Rules
 

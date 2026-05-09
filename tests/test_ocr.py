@@ -210,10 +210,10 @@ class TestOCREndpoint:
             data = response.json()
             assert data["data"]["title"] == "電材・工具一式（新宿オフィス改修）"
             assert data["data"]["originalNumber"] == "KS-2026-0315-0842"
-            assert data["data"]["vendorCode"] == "V-34821"
             assert data["data"]["vendorName"] == "V-34821 株式会社 山陽電材"
+            assert data["data"]["inputCostType"] == "1. invoice"
+            assert data["data"]["paymentMethod"] == "3. Purchase (Invoice - One-time)"
             assert data["data"]["totalAmount"] == 115500
-            assert data["data"]["inputCostImages"][0]["imageUrl"] == "invoices/2026/03/test.pdf"
             assert len(data["data"]["inputCostItems"]) >= 2
             assert data["rawResults"]
 
