@@ -218,18 +218,73 @@ class TestOCREndpoint:
             assert data["rawResults"]
 
     def test_structured_ocr_blank_image(self, blank_image_bytes):
+        class FakeStructuredJobRepository:
+            def create_job(self, raw_ocr_json, provider):
+                assert raw_ocr_json["results"] == []
+                return {
+                    "job_id": "structured_test",
+                    "provider": provider,
+                    "status": "queued",
+                    "created_at": "2026-05-09T00:00:00+00:00",
+                }
+
+        class FakeStructuredJobPublisher:
+            def publish(self, message, topic=None):
+                assert message == {"job_id": "structured_test", "provider": "heuristic"}
+
         with patch('app.routers.ocr.validate_and_preprocess', return_value=(blank_image_bytes, False)), \
              patch('app.routers.ocr.run_ocr', return_value={
                  "results": [],
                  "meta": {"engine": "paddleocr", "engine_version": "3.5.0", "model": "test", "lang": "en",
                           "inference_time_ms": 10, "image_width": 100, "image_height": 100, "was_resized": False},
                  "summary": {"total_lines": 0, "total_characters": 0, "avg_confidence": 0.0}
-             }):
+             }), \
+             patch('app.routers.ocr.get_structured_job_repository', return_value=FakeStructuredJobRepository()), \
+             patch('app.routers.ocr.get_structured_job_publisher', return_value=FakeStructuredJobPublisher()):
             response = client.post(
                 "/ocr/structured",
                 files={"file": ("blank.jpg", blank_image_bytes, "image/jpeg")},
             )
-            assert response.status_code == 200
+            assert response.status_code == 202
             data = response.json()
-            assert data["data"]["inputCostItems"] == []
-            assert data["rawResults"] == []
+            assert data["job_id"] == "structured_test"
+            assert data["status"] == "queued"
+            assert data["status_url"] == "/ocr/structured/jobs/structured_test"
+
+    def test_structured_job_status_success(self):
+        job = {
+            "job_id": "structured_test",
+            "provider": "openrouter",
+            "status": "success",
+            "created_at": "2026-05-09T00:00:00+00:00",
+            "started_at": "2026-05-09T00:00:01+00:00",
+            "completed_at": "2026-05-09T00:00:02+00:00",
+            "structured_json": {
+                "title": "Invoice",
+                "originalNumber": None,
+                "inputCostType": "1. invoice",
+                "issueDate": None,
+                "paymentDate": None,
+                "vendorName": None,
+                "paymentMethod": None,
+                "description": None,
+                "totalAmount": None,
+                "taxes": [],
+                "inputCostItems": [],
+            },
+            "error": None,
+        }
+
+        class FakeStructuredJobRepository:
+            def get_job(self, job_id):
+                assert job_id == "structured_test"
+                return job
+
+        with patch('app.routers.ocr.get_structured_job_repository', return_value=FakeStructuredJobRepository()):
+            response = client.get("/ocr/structured/jobs/structured_test")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["job_id"] == "structured_test"
+        assert data["status"] == "success"
+        assert data["structured_json"]["title"] == "Invoice"

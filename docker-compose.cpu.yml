@@ -13,12 +13,21 @@ services:
       - MAX_BATCH_SIZE=20
       - LOG_LEVEL=INFO
       - JOB_DIR=/tmp/ocr_jobs
-      - STANDARDIZER_PROVIDER=${STANDARDIZER_PROVIDER:-heuristic}
+      - STANDARDIZER_PROVIDER=${STANDARDIZER_PROVIDER:-openrouter}
       - STANDARDIZER_MODEL=${STANDARDIZER_MODEL:-openrouter/owl-alpha}
-      - STANDARDIZER_API_KEY=${STANDARDIZER_API_KEY:-}
-      - STANDARDIZER_BASE_URL=${STANDARDIZER_BASE_URL:-https://openrouter.ai/api/v1}
+      - STANDARDIZER_API_KEY=${STANDARDIZER_API_KEY:-mock-openrouter-key}
+      - STANDARDIZER_BASE_URL=${STANDARDIZER_BASE_URL:-http://mock-openrouter:8081/api/v1}
       - STANDARDIZER_SITE_URL=${STANDARDIZER_SITE_URL:-}
       - STANDARDIZER_APP_NAME=${STANDARDIZER_APP_NAME:-pocr}
+      - POSTGRES_DSN=${POSTGRES_DSN:-postgresql://pocr:pocr@postgres:5432/pocr}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - STRUCTURED_STANDARDIZE_TOPIC=${STRUCTURED_STANDARDIZE_TOPIC:-ocr.standardize}
+      - STRUCTURED_STANDARDIZE_RETRY_TOPIC=${STRUCTURED_STANDARDIZE_RETRY_TOPIC:-ocr.standardize.retry}
+      - STRUCTURED_STANDARDIZE_DLQ_TOPIC=${STRUCTURED_STANDARDIZE_DLQ_TOPIC:-ocr.standardize.dlq}
+      - STANDARDIZER_RATE_LIMIT_KEY=${STANDARDIZER_RATE_LIMIT_KEY:-standardizer:openrouter:minute}
+      - STANDARDIZER_RATE_LIMIT=${STANDARDIZER_RATE_LIMIT:-20}
+      - STANDARDIZER_RATE_LIMIT_TTL_SECONDS=${STANDARDIZER_RATE_LIMIT_TTL_SECONDS:-60}
+      - STANDARDIZER_RETRYABLE_STATUS_CODES=${STANDARDIZER_RETRYABLE_STATUS_CODES:-429,502,503,504}
     volumes:
       - ocr_jobs:/tmp/ocr_jobs
     healthcheck:
@@ -31,8 +40,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: paddleocr-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -43,11 +50,134 @@ services:
     restart: unless-stopped
     profiles:
       - with-redis
+      - structured
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: paddleocr-postgres
+    profiles:
+      - structured
+    environment:
+      - POSTGRES_DB=pocr
+      - POSTGRES_USER=pocr
+      - POSTGRES_PASSWORD=pocr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pocr -d pocr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: paddleocr-kafka
+    profiles:
+      - structured
+    environment:
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    container_name: paddleocr-kafka-init
+    profiles:
+      - structured
+    command:
+      - /bin/sh
+      - -c
+      - |
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize.retry --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize.dlq --partitions 1 --replication-factor 1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  mock-openrouter:
+    image: python:3.10-slim
+    container_name: paddleocr-mock-openrouter
+    profiles:
+      - structured
+    command: ["python", "/scripts/mock_openrouter.py"]
+    volumes:
+      - ./scripts:/scripts:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/api/v1/chat/completions', data=b'{}')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  structured-standardizer-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: paddleocr-structured-standardizer
+    profiles:
+      - structured
+    command: ["python", "-m", "app.workers.structured_standardizer"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_DSN=${POSTGRES_DSN:-postgresql://pocr:pocr@postgres:5432/pocr}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - STRUCTURED_STANDARDIZE_TOPIC=${STRUCTURED_STANDARDIZE_TOPIC:-ocr.standardize}
+      - STRUCTURED_STANDARDIZE_RETRY_TOPIC=${STRUCTURED_STANDARDIZE_RETRY_TOPIC:-ocr.standardize.retry}
+      - STRUCTURED_STANDARDIZE_DLQ_TOPIC=${STRUCTURED_STANDARDIZE_DLQ_TOPIC:-ocr.standardize.dlq}
+      - STANDARDIZER_PROVIDER=${STANDARDIZER_PROVIDER:-openrouter}
+      - STANDARDIZER_MODEL=${STANDARDIZER_MODEL:-openrouter/owl-alpha}
+      - STANDARDIZER_API_KEY=${STANDARDIZER_API_KEY:-mock-openrouter-key}
+      - STANDARDIZER_BASE_URL=${STANDARDIZER_BASE_URL:-http://mock-openrouter:8081/api/v1}
+      - STANDARDIZER_SITE_URL=${STANDARDIZER_SITE_URL:-}
+      - STANDARDIZER_APP_NAME=${STANDARDIZER_APP_NAME:-pocr}
+      - STANDARDIZER_RATE_LIMIT_KEY=${STANDARDIZER_RATE_LIMIT_KEY:-standardizer:openrouter:minute}
+      - STANDARDIZER_RATE_LIMIT=${STANDARDIZER_RATE_LIMIT:-20}
+      - STANDARDIZER_RATE_LIMIT_TTL_SECONDS=${STANDARDIZER_RATE_LIMIT_TTL_SECONDS:-60}
+      - STANDARDIZER_RETRYABLE_STATUS_CODES=${STANDARDIZER_RETRYABLE_STATUS_CODES:-429,502,503,504}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mock-openrouter:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
 volumes:
   ocr_jobs:
     driver: local
   redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  kafka_data:
     driver: local
 
 networks:

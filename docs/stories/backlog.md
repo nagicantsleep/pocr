@@ -11,3 +11,4 @@ the work is selected or when a product decision needs a durable place to land.
 | Epic | Description | Status |
 | --- | --- | --- |
 | Structured OCR standardization | Add an LLM-backed standardizer that converts PaddleOCR evidence into the `sample.json` downstream contract, validates it, and emits only fields present in the source image. | unsliced |
+| Durable structured OCR jobs | Move production structured OCR standardization behind PostgreSQL job state, Kafka queueing, Redis rate limiting, and an OpenRouter worker. | implemented |

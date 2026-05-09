@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     STANDARDIZER_BASE_URL: str = "https://openrouter.ai/api/v1"
     STANDARDIZER_SITE_URL: Optional[str] = None
     STANDARDIZER_APP_NAME: str = "pocr"
+    POSTGRES_DSN: str = "postgresql://pocr:pocr@localhost:5432/pocr"
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    STRUCTURED_STANDARDIZE_TOPIC: str = "ocr.standardize"
+    STRUCTURED_STANDARDIZE_RETRY_TOPIC: str = "ocr.standardize.retry"
+    STRUCTURED_STANDARDIZE_DLQ_TOPIC: str = "ocr.standardize.dlq"
+    STANDARDIZER_RATE_LIMIT_KEY: str = "standardizer:openrouter:minute"
+    STANDARDIZER_RATE_LIMIT: int = 20
+    STANDARDIZER_RATE_LIMIT_TTL_SECONDS: int = 60
+    STANDARDIZER_RETRYABLE_STATUS_CODES: str = "429,502,503,504"
 
     # Async Processing
     ASYNC_WORKERS: int = 4

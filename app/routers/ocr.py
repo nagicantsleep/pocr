@@ -16,10 +16,14 @@ from app.schemas.responses import (
     ErrorResponse,
     ImageOCRResult,
     OCRResponse,
+    StructuredJobCreateResponse,
+    StructuredJobResponse,
     StructuredOCRResponse,
 )
 from app.services.job_store import get_job_store
 from app.services.structured_extraction import StandardizerError, build_structured_response
+from app.services.structured_job_store import get_structured_job_repository
+from app.services.structured_queue import get_structured_job_publisher
 from app.utils.image_utils import base64_to_bytes, validate_and_preprocess
 from app.utils.metrics import record_request
 from app.auth import verify_api_key
@@ -211,7 +215,8 @@ def _record_error(path: str, lang: str, start_time: float):
 
 @router.post(
     "/structured",
-    response_model=StructuredOCRResponse,
+    response_model=StructuredJobCreateResponse,
+    status_code=202,
     dependencies=[Depends(verify_api_key)],
     responses={
         400: {"model": ErrorResponse, "description": "Bad Request"},
@@ -248,8 +253,19 @@ async def ocr_single_structured(
         ocr_error = _handle_ocr_error(result, request_id)
         if ocr_error:
             return ocr_error
-        response = build_structured_ocr_response(result, request_id, image_url=file.filename)
-        return _record_and_return("/ocr/structured", lang, start_time, response)
+        provider = settings.STANDARDIZER_PROVIDER.strip().lower() or "heuristic"
+        job = get_structured_job_repository().create_job(result, provider=provider)
+        get_structured_job_publisher().publish(
+            {"job_id": job["job_id"], "provider": provider},
+            topic=settings.STRUCTURED_STANDARDIZE_TOPIC,
+        )
+        duration = time.time() - start_time
+        record_request("/ocr/structured", lang, "success", duration)
+        return StructuredJobCreateResponse(
+            job_id=job["job_id"],
+            status=job["status"],
+            status_url=f"/ocr/structured/jobs/{job['job_id']}",
+        )
     except ValueError as e:
         _record_error("/ocr/structured", lang, start_time)
         return _handle_processing_error(str(e), request_id, settings, "Image file is empty")
@@ -262,6 +278,35 @@ async def ocr_single_structured(
         logger.error(f"Structured OCR request failed: {e}")
         return _error_response(500, "internal_error", "Internal server error during OCR processing", request_id)
 
+
+@router.get(
+    "/structured/jobs/{job_id}",
+    response_model=StructuredJobResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Job Not Found"},
+    },
+)
+async def get_structured_job(job_id: str):
+    job = get_structured_job_repository().get_job(job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="job_not_found",
+                detail=f"Structured OCR job {job_id} not found",
+                request_id=job_id,
+            ).model_dump(),
+        )
+    return StructuredJobResponse(
+        job_id=job["job_id"],
+        provider=job["provider"],
+        status=job["status"],
+        created_at=job.get("created_at"),
+        started_at=job.get("started_at"),
+        completed_at=job.get("completed_at"),
+        structured_json=job.get("structured_json"),
+        error=job.get("error"),
+    )
 
 @router.post(
     "/structured/json",
@@ -609,8 +654,6 @@ async def ocr_single(
 )
 async def ocr_single_json(
     request: OCRRequest,
-    lang_form: Optional[str] = Form(None, alias="lang"),
-    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
     x_layout_analysis: Optional[bool] = Header(None, alias="X-Layout-Analysis"),

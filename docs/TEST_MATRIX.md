@@ -21,6 +21,7 @@ implemented until tests or validation evidence exist.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `docs/stories/US-001-cpu-ocr-fixtures-return-text.md` | CPU OCR fixture images return non-empty text results | yes | yes | no | yes | implemented | `compileall app tests`; focused `normalize_ocr_results` check; CPU container `/ocr` smoke for `tests/fixtures/img*.png` returned 24-47 lines per image |
 | `docs/stories/US-002-structured-standardizer/overview.md` | Structured OCR output follows `sample.json` with `inputCostItems` and validates before response | yes | yes | no | yes | implemented | `compileall app tests`; direct standardizer check; CPU container `/ocr` and `/ocr/structured` fixture smoke wrote `out/img*.json` and `out/img*.structured.json` |
+| `docs/stories/US-003-durable-structured-jobs/overview.md` | `/ocr/structured` queues durable PostgreSQL/Kafka standardization jobs and `/ocr/structured/jobs/{job_id}` returns queued, running, success, or failed | yes | yes | no | yes | implemented | `compileall app tests scripts`; focused pytest in rebuilt CPU image: 14 passed; structured compose profile E2E job `structured_82e9708ce3f54c2ca2290558bc366ecf` returned `success`; PostgreSQL row has raw OCR and `structured_json.title=Mock OpenRouter Invoice`; Redis key `standardizer:openrouter:minute=1`; Kafka topics `ocr.standardize`, `ocr.standardize.retry`, `ocr.standardize.dlq` exist |
 
 ## Evidence Rules
 

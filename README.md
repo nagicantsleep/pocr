@@ -54,6 +54,8 @@ docker-compose -f docker-compose.gpu.yml up --build
 |----------|--------|-------------|
 | `POST /ocr` | Single Image | Upload an image file for OCR |
 | `POST /ocr/json` | Single Image (JSON) | Send base64-encoded image |
+| `POST /ocr/structured` | Structured Job | Upload an image file, run OCR, and queue structured standardization |
+| `GET /ocr/structured/jobs/{job_id}` | Structured Job Status | Get structured OCR job status/result |
 | `POST /ocr/batch` | Batch OCR | Upload multiple images |
 | `POST /ocr/batch/json` | Batch OCR (JSON) | Send multiple base64 images |
 

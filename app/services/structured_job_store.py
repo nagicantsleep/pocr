@@ -1,0 +1,153 @@
+"""PostgreSQL-backed structured OCR job state."""
+
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from app.config import get_settings
+
+STRUCTURED_JOB_SCHEMA = """
+CREATE TABLE IF NOT EXISTS structured_ocr_jobs (
+    job_id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'success', 'failed')),
+    raw_ocr_json JSONB NOT NULL,
+    structured_json JSONB NULL,
+    error TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    started_at TIMESTAMPTZ NULL,
+    completed_at TIMESTAMPTZ NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+"""
+
+
+class StructuredJobStatus:
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class StructuredJobRepository:
+    def __init__(self, dsn: str | None = None) -> None:
+        self.dsn = dsn or get_settings().POSTGRES_DSN
+
+    def _connect(self):
+        import psycopg
+
+        return psycopg.connect(self.dsn)
+
+    def ensure_schema(self) -> None:
+        with self._connect() as conn:
+            conn.execute(STRUCTURED_JOB_SCHEMA)
+
+    def create_job(self, raw_ocr_json: dict[str, Any], provider: str) -> dict[str, Any]:
+        job_id = f"structured_{uuid.uuid4().hex}"
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO structured_ocr_jobs
+                    (job_id, provider, status, raw_ocr_json, structured_json, created_at, updated_at)
+                VALUES
+                    (%s, %s, %s, %s::jsonb, NULL, %s, %s)
+                """,
+                (
+                    job_id,
+                    provider,
+                    StructuredJobStatus.QUEUED,
+                    json.dumps(raw_ocr_json),
+                    now,
+                    now,
+                ),
+            )
+        return {
+            "job_id": job_id,
+            "provider": provider,
+            "status": StructuredJobStatus.QUEUED,
+            "created_at": now.isoformat(),
+        }
+
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
+        self.ensure_schema()
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT job_id, provider, status, raw_ocr_json, structured_json, error,
+                       created_at, started_at, completed_at
+                FROM structured_ocr_jobs
+                WHERE job_id = %s
+                """,
+                (job_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "job_id": row[0],
+            "provider": row[1],
+            "status": row[2],
+            "raw_ocr_json": row[3],
+            "structured_json": row[4],
+            "error": row[5],
+            "created_at": row[6],
+            "started_at": row[7],
+            "completed_at": row[8],
+        }
+
+    def mark_running(self, job_id: str) -> None:
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE structured_ocr_jobs
+                SET status = %s, started_at = COALESCE(started_at, %s), updated_at = %s
+                WHERE job_id = %s
+                """,
+                (StructuredJobStatus.RUNNING, now, now, job_id),
+            )
+
+    def mark_success(self, job_id: str, structured_json: dict[str, Any]) -> None:
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE structured_ocr_jobs
+                SET status = %s, structured_json = %s::jsonb, completed_at = %s, updated_at = %s
+                WHERE job_id = %s
+                """,
+                (
+                    StructuredJobStatus.SUCCESS,
+                    json.dumps(structured_json),
+                    now,
+                    now,
+                    job_id,
+                ),
+            )
+
+    def mark_failed(self, job_id: str, error: str) -> None:
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE structured_ocr_jobs
+                SET status = %s, error = %s, completed_at = %s, updated_at = %s
+                WHERE job_id = %s
+                """,
+                (StructuredJobStatus.FAILED, error, now, now, job_id),
+            )
+
+
+_structured_job_repository: StructuredJobRepository | None = None
+
+
+def get_structured_job_repository() -> StructuredJobRepository:
+    global _structured_job_repository
+    if _structured_job_repository is None:
+        _structured_job_repository = StructuredJobRepository()
+    return _structured_job_repository

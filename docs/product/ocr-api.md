@@ -48,3 +48,35 @@ The default standardizer provider is `heuristic`, which makes no external calls.
 chat-completions adapter. `STANDARDIZER_PROVIDER=openai` enables the direct
 OpenAI Responses adapter. Both adapters request JSON schema output and the
 service validates the returned JSON with Pydantic before responding.
+
+## Durable Structured Job Flow
+
+The production structured OCR flow is asynchronous and durable:
+
+```text
+POST /ocr/structured
+  -> PaddleOCR
+  -> PostgreSQL structured_ocr_jobs row with raw_ocr_json and status=queued
+  -> Kafka ocr.standardize message
+  -> standardizer worker
+  -> Redis shared OpenRouter rate limit, 20 requests/minute
+  -> OpenRouter standardizer
+  -> Pydantic StructuredOCRData validation
+  -> PostgreSQL structured_json and status=success
+  -> GET /ocr/structured/jobs/{job_id}
+```
+
+`POST /ocr/structured` returns `202 Accepted` with `job_id`, `status=queued`,
+and `status_url`. The queued row stores OCR evidence in `raw_ocr_json` and
+leaves `structured_json` null until the worker succeeds.
+
+`GET /ocr/structured/jobs/{job_id}` reads PostgreSQL and returns one of:
+
+- `queued`
+- `running`
+- `success`
+- `failed`
+
+Retryable OpenRouter failures are HTTP 429, 502, 503, and 504. The worker
+publishes retryable failures to `ocr.standardize.retry`; permanent failures are
+marked `failed` and published to `ocr.standardize.dlq`.

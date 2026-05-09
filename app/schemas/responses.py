@@ -208,6 +208,28 @@ class StructuredOCRResponse(BaseModel):
     )
 
 
+class StructuredJobCreateResponse(BaseModel):
+    """Response for queued structured OCR standardization jobs."""
+
+    job_id: str = Field(..., description="Unique structured job identifier")
+    status: str = Field(default="queued", description="Initial job status")
+    status_url: str = Field(..., description="URL to poll for job status")
+
+class StructuredJobResponse(BaseModel):
+    """Status and result response for structured OCR standardization jobs."""
+
+    job_id: str = Field(..., description="Unique structured job identifier")
+    status: str = Field(..., description="queued, running, success, or failed")
+    provider: str = Field(..., description="Standardizer provider")
+    created_at: Optional[datetime] = Field(default=None, description="Job creation time")
+    started_at: Optional[datetime] = Field(default=None, description="Processing start time")
+    completed_at: Optional[datetime] = Field(default=None, description="Completion time")
+    structured_json: Optional[StructuredOCRData] = Field(
+        default=None,
+        description="Validated structured result when status is success",
+    )
+    error: Optional[str] = Field(default=None, description="Failure reason when status is failed")
+
 class ImageOCRResult(BaseModel):
     """Result for a single image in batch processing."""
 

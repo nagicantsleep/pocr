@@ -1,10 +1,10 @@
 # Architecture
 
-No application stack is selected yet.
+The current implementation stack is FastAPI, PaddleOCR, Pydantic, PostgreSQL,
+Kafka, Redis, and optional OpenRouter/OpenAI-compatible standardization.
 
-No application code exists yet. This document defines generic architecture
-questions and boundary rules that future implementation should adapt after a
-user-provided spec and stack decision exist.
+The original harness guidance below still applies as boundary rules for new
+implementation work.
 
 ## Discovery Before Shape
 
@@ -131,3 +131,18 @@ The future server should emit one canonical JSON log line per request with:
 
 Audit logs are product records. Application logs are operational records. Do not
 use one as a substitute for the other.
+
+## Structured OCR Infrastructure
+
+The production structured OCR flow separates extraction from standardization:
+
+- API: validates images, runs PaddleOCR, stores OCR evidence and job state in
+  PostgreSQL, and publishes Kafka work.
+- PostgreSQL: durable `structured_ocr_jobs` rows with `raw_ocr_json`,
+  `structured_json`, status, timestamps, and error detail.
+- Kafka: durable `ocr.standardize`, `ocr.standardize.retry`, and
+  `ocr.standardize.dlq` topics.
+- Redis: shared OpenRouter minute limiter at
+  `standardizer:openrouter:minute`, default 20 requests per 60 seconds.
+- Worker: consumes Kafka, calls the configured standardizer provider, validates
+  `StructuredOCRData`, and writes success or failure to PostgreSQL.
