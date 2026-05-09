@@ -5,6 +5,7 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 from PIL import Image
 
 from app.config import get_settings
@@ -13,12 +14,11 @@ from app.utils.metrics import record_inference
 
 logger = logging.getLogger(__name__)
 
-# Global engine instance (lazy initialized)
-_ocr_engine: Optional[Any] = None
-_engine_initialized: bool = False
+# Global engines by language (lazy initialized)
+_ocr_engines: Dict[str, Any] = {}
 
 
-def get_ocr_engine() -> Any:
+def get_ocr_engine(lang: str = "en") -> Any:
     """
     Get or create the PaddleOCR engine instance.
     Lazy initialization - engine is created on first request.
@@ -26,49 +26,35 @@ def get_ocr_engine() -> Any:
     Returns:
         PaddleOCR engine instance
     """
-    global _ocr_engine, _engine_initialized
+    settings = get_settings()
+    engine_lang = (lang or settings.MODEL_LANG or "en").strip().lower()
+    if engine_lang == "auto":
+        engine_lang = settings.MODEL_LANG
 
-    if not _engine_initialized:
-        settings = get_settings()
-
-        logger.info(f"Initializing PaddleOCR with device={settings.PADDLE_DEVICE}")
+    if engine_lang not in _ocr_engines:
+        logger.info(f"Initializing PaddleOCR with device={settings.PADDLE_DEVICE}, lang={engine_lang}")
 
         # Import PaddleOCR here for lazy loading
         from paddleocr import PaddleOCR
 
-        # Build OCR parameters from settings
+        # PaddleOCR 3.x: keep init args minimal and compatible
         ocr_params = {
-            "lang": settings.MODEL_LANG,
-            "use_angle_cls": settings.USE_ANGLE_CLS,
-            "det_db_thresh": settings.DET_DB_THRESH,
-            "det_db_box_thresh": settings.DET_DB_BOX_THRESH,
-            "rec_batch_num": settings.REC_BATCH_NUM,
+            "lang": engine_lang,
         }
-
-        # Set device
-        device = settings.paddle_device
-        if settings.paddle_device_id is not None:
-            device = f"gpu:{settings.paddle_device_id}"
-        ocr_params["use_gpu"] = device.startswith("gpu")
-
-        # Model download URL if provided
-        if settings.MODEL_DOWNLOAD_URL:
-            ocr_params["model_storage_dir"] = settings.MODEL_DOWNLOAD_URL
 
         logger.info(f"PaddleOCR parameters: {ocr_params}")
 
-        # Initialize engine
-        _ocr_engine = PaddleOCR(**ocr_params)
-        _engine_initialized = True
+        # Initialize engine for this language
+        _ocr_engines[engine_lang] = PaddleOCR(**ocr_params)
 
         logger.info("PaddleOCR engine initialized successfully")
 
-    return _ocr_engine
+    return _ocr_engines[engine_lang]
 
 
 def is_engine_ready() -> bool:
-    """Check if OCR engine is initialized and ready."""
-    return _engine_initialized and _ocr_engine is not None
+    """Check if at least one OCR engine is initialized and ready."""
+    return len(_ocr_engines) > 0
 
 
 def run_ocr(
@@ -93,8 +79,8 @@ def run_ocr(
     start_time = time.time()
 
     try:
-        # Get engine (lazy initialization)
-        engine = get_ocr_engine()
+        # Get language-specific engine (lazy initialization)
+        engine = get_ocr_engine(lang=lang)
 
         # Load image for dimension info
         image = Image.open(io.BytesIO(image_bytes))
@@ -102,7 +88,10 @@ def run_ocr(
         image.close()
 
         # Run OCR
-        results = engine.ocr(image_bytes, cls=settings.USE_ANGLE_CLS)
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image_array = np.array(image)
+        results = engine.ocr(image_array)
+        image.close()
 
         # Calculate inference time
         inference_time_ms = int((time.time() - start_time) * 1000)
@@ -174,7 +163,7 @@ def normalize_ocr_results(
             "results": [],
             "meta": {
                 "engine": "paddleocr",
-                "engine_version": "3.5.0",
+                "engine_version": get_settings().PADDLEOCR_VERSION,
                 "model": f"ch_PP-OCRv4_{lang}",
                 "lang": lang,
                 "inference_time_ms": inference_time_ms,
@@ -189,28 +178,87 @@ def normalize_ocr_results(
             },
         }
 
-    # Process each detected region
+    def normalize_polygon(polygon: Any) -> List[List[float]]:
+        if polygon is None:
+            return []
+        if isinstance(polygon, np.ndarray):
+            polygon = polygon.tolist()
+        points = []
+        for point in polygon:
+            if isinstance(point, np.ndarray):
+                point = point.tolist()
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            points.append([float(point[0]), float(point[1])])
+        return points
+
+    def build_geometry(polygon: Any) -> tuple[dict, dict, list]:
+        points = normalize_polygon(polygon)
+        if len(points) < 4:
+            return (
+                {"top_left": [0, 0], "bottom_right": [0, 0]},
+                {"top_left": [0.0, 0.0], "bottom_right": [0.0, 0.0]},
+                [],
+            )
+
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        bbox = {"top_left": [min(xs), min(ys)], "bottom_right": [max(xs), max(ys)]}
+        bbox_normalized = {
+            "top_left": [min(xs) / original_width, min(ys) / original_height],
+            "bottom_right": [max(xs) / original_width, max(ys) / original_height],
+        }
+        return bbox, bbox_normalized, points
+
     for line_result in raw_results:
         if not line_result:
             continue
 
-        for item in line_result:
+        # PaddleOCR 3.x may return dict entries with batched arrays
+        if isinstance(line_result, dict):
+            texts = line_result.get("rec_texts") or []
+            scores = line_result.get("rec_scores") or []
+            polys = line_result.get("rec_polys") or line_result.get("dt_polys") or []
+            for i, text in enumerate(texts):
+                confidence = float(scores[i]) if i < len(scores) else 1.0
+                if confidence < min_confidence:
+                    continue
+                polygon = polys[i] if i < len(polys) else []
+                bbox, bbox_normalized, polygon_points = build_geometry(polygon)
+
+                result_item = {
+                    "text": str(text),
+                    "confidence": confidence,
+                    "bbox": bbox,
+                    "bbox_normalized": bbox_normalized,
+                    "type": "text",
+                }
+                if include_polygon:
+                    result_item["polygon"] = polygon_points
+
+                results_list.append(result_item)
+                total_characters += len(str(text))
+                confidence_sum += confidence
+                confidence_count += 1
+            continue
+
+        # Legacy PaddleOCR item shape: [polygon, (text, confidence)]
+        items = line_result if isinstance(line_result, list) else [line_result]
+        for item in items:
             if not item or len(item) < 2:
                 continue
 
-            # Extract data from PaddleOCR format
-            # Format: [[polygon], (text, confidence)]
-            if isinstance(item, list) and len(item) >= 2:
-                polygon = item[0]
-                text_info = item[1]
-            elif isinstance(item, tuple) and len(item) >= 2:
-                polygon = item[0]
-                text_info = item[1]
-            else:
+            if not isinstance(item, (list, tuple)):
                 continue
+
+            polygon = item[0]
+            text_info = item[1]
 
             # Extract text and confidence
             if isinstance(text_info, tuple):
+                text = text_info[0]
+                confidence = float(text_info[1])
+            elif isinstance(text_info, list) and len(text_info) >= 2:
                 text = text_info[0]
                 confidence = float(text_info[1])
             else:
@@ -222,35 +270,7 @@ def normalize_ocr_results(
                 continue
 
             # Calculate bounding box from polygon
-            if polygon and len(polygon) >= 4:
-                xs = [p[0] for p in polygon]
-                ys = [p[1] for p in polygon]
-                bbox = {
-                    "top_left": [min(xs), min(ys)],
-                    "bottom_right": [max(xs), max(ys)],
-                }
-
-                # Normalized bbox (0-1 range)
-                bbox_normalized = {
-                    "top_left": [
-                        min(xs) / original_width,
-                        min(ys) / original_height,
-                    ],
-                    "bottom_right": [
-                        max(xs) / original_width,
-                        max(ys) / original_height,
-                    ],
-                }
-
-                # Format polygon
-                polygon_points = polygon if include_polygon else []
-            else:
-                bbox = {"top_left": [0, 0], "bottom_right": [0, 0]}
-                bbox_normalized = {
-                    "top_left": [0.0, 0.0],
-                    "bottom_right": [0.0, 0.0],
-                }
-                polygon_points = []
+            bbox, bbox_normalized, polygon_points = build_geometry(polygon)
 
             # Add result
             result_item = {
@@ -280,7 +300,7 @@ def normalize_ocr_results(
         "results": results_list,
         "meta": {
             "engine": "paddleocr",
-            "engine_version": "2.7.3",
+            "engine_version": get_settings().PADDLEOCR_VERSION,
             "model": f"ch_PP-OCRv4_{lang}",
             "lang": lang,
             "inference_time_ms": inference_time_ms,
@@ -318,7 +338,7 @@ def create_error_response(
         "results": [],
         "meta": {
             "engine": "paddleocr",
-            "engine_version": "2.7.3",
+            "engine_version": get_settings().PADDLEOCR_VERSION,
             "model": f"ch_PP-OCRv4_{lang}",
             "lang": lang,
             "inference_time_ms": 0,
@@ -375,11 +395,6 @@ def run_ocr_with_fallback(
                     from paddleocr import PaddleOCR
                     ocr_params = {
                         "lang": cpu_settings.MODEL_LANG,
-                        "use_angle_cls": cpu_settings.USE_ANGLE_CLS,
-                        "det_db_thresh": cpu_settings.DET_DB_THRESH,
-                        "det_db_box_thresh": cpu_settings.DET_DB_BOX_THRESH,
-                        "rec_batch_num": cpu_settings.REC_BATCH_NUM,
-                        "use_gpu": False,
                     }
                     original_engine = _ocr_engine
                     _ocr_engine = PaddleOCR(**ocr_params)

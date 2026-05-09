@@ -58,7 +58,6 @@ def process_single_image(
         min_confidence=min_confidence,
         include_polygon=include_polygon,
     )
-
     # Update was_resized in meta
     if "meta" in result:
         result["meta"]["was_resized"] = was_resized
@@ -230,8 +229,8 @@ async def ocr_single_structured(
     settings = get_settings()
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    lang = x_lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+    lang = x_lang or lang_form or settings.MODEL_LANG
+    min_confidence = x_min_confidence if x_min_confidence is not None else (min_confidence_form if min_confidence_form is not None else settings.MIN_CONFIDENCE)
 
     try:
         image_bytes = await file.read()
@@ -319,6 +318,8 @@ async def ocr_single_structured_json(
 )
 async def ocr_single(
     file: UploadFile = File(..., description="Image file to process"),
+    lang_form: Optional[str] = Form(None, alias="lang"),
+    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
     x_layout_analysis: Optional[bool] = Header(None, alias="X-Layout-Analysis"),
@@ -331,8 +332,8 @@ async def ocr_single(
     settings = get_settings()
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    lang = x_lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+    lang = x_lang or lang_form or settings.MODEL_LANG
+    min_confidence = x_min_confidence if x_min_confidence is not None else (min_confidence_form if min_confidence_form is not None else settings.MIN_CONFIDENCE)
 
     try:
         # Read file content
@@ -459,6 +460,8 @@ async def ocr_single(
 )
 async def ocr_single(
     file: UploadFile = File(..., description="Image file to process"),
+    lang_form: Optional[str] = Form(None, alias="lang"),
+    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
     x_layout_analysis: Optional[bool] = Header(None, alias="X-Layout-Analysis"),
@@ -471,8 +474,8 @@ async def ocr_single(
     settings = get_settings()
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    lang = x_lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+    lang = x_lang or lang_form or settings.MODEL_LANG
+    min_confidence = x_min_confidence if x_min_confidence is not None else (min_confidence_form if min_confidence_form is not None else settings.MIN_CONFIDENCE)
 
     try:
         # Read file content
@@ -596,6 +599,8 @@ async def ocr_single(
 )
 async def ocr_single_json(
     request: OCRRequest,
+    lang_form: Optional[str] = Form(None, alias="lang"),
+    min_confidence_form: Optional[float] = Form(None, alias="min_confidence"),
     x_lang: Optional[str] = Header(None, alias="X-Lang"),
     x_min_confidence: Optional[float] = Header(None, alias="X-Min-Confidence"),
     x_layout_analysis: Optional[bool] = Header(None, alias="X-Layout-Analysis"),
@@ -736,8 +741,8 @@ async def ocr_batch(
     settings = get_settings()
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    lang = x_lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or settings.MIN_CONFIDENCE
+    lang = x_lang or lang_form or settings.MODEL_LANG
+    min_confidence = x_min_confidence if x_min_confidence is not None else (min_confidence_form if min_confidence_form is not None else settings.MIN_CONFIDENCE)
 
     # Check batch size limit
     if len(files) > settings.MAX_BATCH_SIZE:
