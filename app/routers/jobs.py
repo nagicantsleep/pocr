@@ -7,8 +7,10 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from fastapi.responses import JSONResponse
+
+from app.auth import verify_api_key
 
 from app.config import get_settings
 from app.schemas.requests import JobCreateRequest
@@ -26,7 +28,7 @@ from app.services.ocr_engine import run_ocr
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ocr/jobs", tags=["Jobs"])
+router = APIRouter(prefix="/ocr/jobs", tags=["Jobs"], dependencies=[Depends(verify_api_key)])
 
 # Thread pool for background OCR processing
 settings = get_settings()
@@ -185,6 +187,7 @@ async def process_job_async(job_id: str, images: list, lang: str, min_confidence
         record_request("/ocr/jobs", lang, job_status_str, duration, batch_size=len(images), job_type="async")
 
         logger.info(f"Job {job_id} completed with status {status}")
+        decrement_queue_depth()
 
     except Exception as e:
         logger.error(f"Job {job_id} failed with error: {e}")

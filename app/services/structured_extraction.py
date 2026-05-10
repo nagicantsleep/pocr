@@ -47,7 +47,7 @@ AMOUNT_LABEL_PATTERN = re.compile(r"(?:金額|金額合計|金額税込|amount)[
 HEADER_LABEL_PATTERN = re.compile(r"(?:請求書番号|伝票番号|No\.?|番号|請求日|発行日|支払期日|支払期限|請求条件)[:：]?", re.IGNORECASE)
 ITEM_CODE_PATTERN = re.compile(r"([A-Z]{2,}[\-_]?[0-9]{2,})")
 VENDOR_CODE_PATTERN = re.compile(r"\bV-[0-9]{3,}\b")
-UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+UUID_PATTERN = re.compile(  r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
 
 class StandardizerError(RuntimeError):
     """Raised when structured standardization fails."""

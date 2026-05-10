@@ -362,6 +362,9 @@ def run_ocr_with_fallback(
     """
     Run OCR with GPU to CPU fallback on OOM.
 
+    Note: run_ocr catches all exceptions internally and returns error dicts,
+    so the OOM fallback path below is rarely reached in practice.
+
     Args:
         image_bytes: Raw image bytes
         lang: Language code for OCR
@@ -370,8 +373,6 @@ def run_ocr_with_fallback(
     Returns:
         Normalized OCR results dictionary
     """
-    settings = get_settings()
-
     try:
         return run_ocr(image_bytes, lang, min_confidence)
     except Exception as e:
@@ -383,23 +384,15 @@ def run_ocr_with_fallback(
                 f"GPU OOM detected, falling back to CPU. Error: {e}"
             )
 
-            # Use a local variable instead of mutating the singleton
-            # Pass a modified config dict directly to PaddleOCR
-            cpu_settings = settings  # keep reference but don't mutate
-
             try:
-                global _ocr_engine
-                # Create CPU-specific engine params
-                original_engine = _ocr_engine
-                if _engine_initialized:
+                engine_lang = (lang or "en").strip().lower()
+                if engine_lang in _ocr_engines:
                     from paddleocr import PaddleOCR
-                    ocr_params = {
-                        "lang": cpu_settings.MODEL_LANG,
-                    }
-                    original_engine = _ocr_engine
-                    _ocr_engine = PaddleOCR(**ocr_params)
+                    original_engine = _ocr_engines[engine_lang]
+                    ocr_params = {"lang": engine_lang}
+                    _ocr_engines[engine_lang] = PaddleOCR(**ocr_params)
                     result = run_ocr(image_bytes, lang, min_confidence)
-                    _ocr_engine = original_engine
+                    _ocr_engines[engine_lang] = original_engine
                     return result
                 else:
                     return run_ocr(image_bytes, lang, min_confidence)
