@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.schemas.responses import BBox, OCRResult
 from app.services.structured_extraction import StandardizerError, get_standardizer
 from app.services.structured_job_store import get_structured_job_repository
-from app.services.structured_queue import StructuredJobPublisher
+from app.services.structured_queue import get_structured_job_publisher
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class RedisMinuteRateLimiter:
 def process_standardization_message(message: dict[str, Any]) -> None:
     settings = get_settings()
     repo = get_structured_job_repository()
-    publisher = StructuredJobPublisher()
+    publisher = get_structured_job_publisher()
     job_id = message["job_id"]
     provider = message.get("provider", settings.STANDARDIZER_PROVIDER)
 

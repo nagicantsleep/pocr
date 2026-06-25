@@ -69,7 +69,7 @@ def test_worker_standardizes_and_marks_success():
 
     with patch("app.workers.structured_standardizer.get_structured_job_repository", return_value=FakeRepo()), \
         patch("app.workers.structured_standardizer.RedisMinuteRateLimiter", return_value=FakeLimiter()), \
-        patch("app.workers.structured_standardizer.StructuredJobPublisher", return_value=FakePublisher()), \
+        patch("app.workers.structured_standardizer.get_structured_job_publisher", return_value=FakePublisher()), \
         patch("app.workers.structured_standardizer.get_standardizer", return_value=FakeStandardizer()):
         process_standardization_message({"job_id": "structured_test", "provider": "openrouter"})
 
@@ -107,7 +107,7 @@ def test_worker_republishes_retryable_provider_failure():
 
     with patch("app.workers.structured_standardizer.get_structured_job_repository", return_value=FakeRepo()), \
         patch("app.workers.structured_standardizer.RedisMinuteRateLimiter", return_value=FakeLimiter()), \
-        patch("app.workers.structured_standardizer.StructuredJobPublisher", return_value=FakePublisher()), \
+        patch("app.workers.structured_standardizer.get_structured_job_publisher", return_value=FakePublisher()), \
         patch("app.workers.structured_standardizer.get_standardizer", return_value=RetryableStandardizer()):
         process_standardization_message({"job_id": "structured_test", "provider": "openrouter"})
 
@@ -140,7 +140,7 @@ def test_worker_retries_when_rate_limited_before_provider_call():
 
     with patch("app.workers.structured_standardizer.get_structured_job_repository", return_value=FakeRepo()), \
         patch("app.workers.structured_standardizer.RedisMinuteRateLimiter", return_value=FakeLimiter(False)), \
-        patch("app.workers.structured_standardizer.StructuredJobPublisher", return_value=FakePublisher()):
+        patch("app.workers.structured_standardizer.get_structured_job_publisher", return_value=FakePublisher()):
         process_standardization_message({"job_id": "structured_test", "provider": "openrouter"})
 
     assert calls == [
@@ -170,7 +170,7 @@ def test_worker_marks_failed_and_publishes_dlq_on_permanent_failure():
 
     with patch("app.workers.structured_standardizer.get_structured_job_repository", return_value=FakeRepo()), \
         patch("app.workers.structured_standardizer.RedisMinuteRateLimiter", return_value=FakeLimiter()), \
-        patch("app.workers.structured_standardizer.StructuredJobPublisher", return_value=FakePublisher()), \
+        patch("app.workers.structured_standardizer.get_structured_job_publisher", return_value=FakePublisher()), \
         patch("app.workers.structured_standardizer.get_standardizer", return_value=PermanentFailureStandardizer()):
         process_standardization_message({"job_id": "structured_test", "provider": "openrouter"})
 

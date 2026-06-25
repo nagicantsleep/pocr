@@ -31,23 +31,30 @@ class StructuredJobStatus:
 
 
 class StructuredJobRepository:
-    def __init__(self, dsn: str | None = None) -> None:
+    def __init__(self, dsn: str | None = None, min_connections: int = 1, max_connections: int = 10) -> None:
+        import psycopg_pool
+
         self.dsn = dsn or get_settings().POSTGRES_DSN
+        self._pool = psycopg_pool.ConnectionPool(
+            self.dsn,
+            min_size=min_connections,
+            max_size=max_connections,
+            open=False,
+        )
+        self._pool.open()
 
-    def _connect(self):
-        import psycopg
-
-        return psycopg.connect(self.dsn)
+    def _conn(self):
+        return self._pool.connection()
 
     def ensure_schema(self) -> None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(STRUCTURED_JOB_SCHEMA)
 
     def create_job(self, raw_ocr_json: dict[str, Any], provider: str) -> dict[str, Any]:
         job_id = f"structured_{uuid.uuid4().hex}"
         now = datetime.now(timezone.utc)
         self.ensure_schema()
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 """
                 INSERT INTO structured_ocr_jobs
@@ -73,7 +80,7 @@ class StructuredJobRepository:
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         self.ensure_schema()
-        with self._connect() as conn:
+        with self._conn() as conn:
             row = conn.execute(
                 """
                 SELECT job_id, provider, status, raw_ocr_json, structured_json, error,
@@ -100,7 +107,7 @@ class StructuredJobRepository:
     def mark_running(self, job_id: str) -> None:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 """
                 UPDATE structured_ocr_jobs
@@ -113,7 +120,7 @@ class StructuredJobRepository:
     def mark_success(self, job_id: str, structured_json: dict[str, Any]) -> None:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 """
                 UPDATE structured_ocr_jobs
@@ -132,7 +139,7 @@ class StructuredJobRepository:
     def mark_failed(self, job_id: str, error: str) -> None:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 """
                 UPDATE structured_ocr_jobs
@@ -141,6 +148,15 @@ class StructuredJobRepository:
                 """,
                 (StructuredJobStatus.FAILED, error, now, now, job_id),
             )
+
+    def close(self) -> None:
+        """Close the connection pool. Call on application shutdown."""
+        self._pool.close()
+
+    def reset(self) -> None:
+        """Reset the module singleton. Useful for tests."""
+        global _structured_job_repository
+        _structured_job_repository = None
 
 
 _structured_job_repository: StructuredJobRepository | None = None

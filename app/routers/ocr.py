@@ -330,7 +330,7 @@ async def ocr_single_structured_json(
     request_id = str(uuid.uuid4())
     start_time = time.time()
     lang = x_lang or request.lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or request.min_confidence
+    min_confidence = x_min_confidence if x_min_confidence is not None else request.min_confidence
 
     try:
         image_bytes = base64_to_bytes(request.image)
@@ -528,7 +528,7 @@ async def ocr_single_json(
     request_id = str(uuid.uuid4())
     start_time = time.time()
     lang = x_lang or request.lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or request.min_confidence
+    min_confidence = x_min_confidence if x_min_confidence is not None else request.min_confidence
 
     try:
         # Decode base64 image
@@ -797,7 +797,7 @@ async def ocr_batch_json(
     request_id = str(uuid.uuid4())
     start_time = time.time()
     lang = x_lang or request.lang or settings.MODEL_LANG
-    min_confidence = x_min_confidence or request.min_confidence
+    min_confidence = x_min_confidence if x_min_confidence is not None else request.min_confidence
 
     # Check batch size limit
     if len(request.images) > settings.MAX_BATCH_SIZE:

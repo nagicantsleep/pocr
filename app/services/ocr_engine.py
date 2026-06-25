@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Global engines by language (lazy initialized)
 _ocr_engines: Dict[str, Any] = {}
 
+# Separate cache for CPU fallback engines (keyed by normalized lang)
+_cpu_fallback_engines: Dict[str, Any] = {}
+
 
 def get_ocr_engine(lang: str = "en") -> Any:
     """
@@ -40,6 +43,7 @@ def get_ocr_engine(lang: str = "en") -> Any:
         # PaddleOCR 3.x: keep init args minimal and compatible
         ocr_params = {
             "lang": engine_lang,
+            "device": settings.PADDLE_DEVICE,
         }
 
         logger.info(f"PaddleOCR parameters: {ocr_params}")
@@ -87,10 +91,31 @@ def run_ocr(
         original_width, original_height = image.size
         image.close()
 
-        # Run OCR
+        # Run OCR (with GPU→CPU OOM fallback)
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         image_array = np.array(image)
-        results = engine.ocr(image_array)
+        try:
+            results = engine.ocr(image_array)
+        except Exception as ocr_err:
+            ocr_err_lower = str(ocr_err).lower()
+            if "oom" in ocr_err_lower or "out of memory" in ocr_err_lower:
+                logger.warning(f"GPU OOM detected, falling back to CPU: {ocr_err}")
+                # Normalize lang the same way get_ocr_engine does (avoids invalid "auto")
+                fallback_lang = (lang or settings.MODEL_LANG or "en").strip().lower()
+                if fallback_lang == "auto":
+                    fallback_lang = settings.MODEL_LANG
+                # Reuse cached CPU engine per language, or create and cache it
+                if fallback_lang not in _cpu_fallback_engines:
+                    from paddleocr import PaddleOCR
+                    _cpu_fallback_engines[fallback_lang] = PaddleOCR(
+                        lang=fallback_lang, device="cpu"
+                    )
+                    logger.info(f"Cached CPU fallback engine for lang={fallback_lang}")
+                results = _cpu_fallback_engines[fallback_lang].ocr(image_array)
+                # Replace the bad GPU engine so future requests go straight to CPU
+                _ocr_engines[fallback_lang] = _cpu_fallback_engines[fallback_lang]
+            else:
+                raise
         image.close()
 
         # Calculate inference time
@@ -352,51 +377,3 @@ def create_error_response(
             "avg_confidence": 0.0,
         },
     }
-
-
-def run_ocr_with_fallback(
-    image_bytes: bytes,
-    lang: str = "auto",
-    min_confidence: float = 0.0,
-) -> Dict[str, Any]:
-    """
-    Run OCR with GPU to CPU fallback on OOM.
-
-    Note: run_ocr catches all exceptions internally and returns error dicts,
-    so the OOM fallback path below is rarely reached in practice.
-
-    Args:
-        image_bytes: Raw image bytes
-        lang: Language code for OCR
-        min_confidence: Minimum confidence threshold
-
-    Returns:
-        Normalized OCR results dictionary
-    """
-    try:
-        return run_ocr(image_bytes, lang, min_confidence)
-    except Exception as e:
-        error_str = str(e).lower()
-
-        # Check for GPU OOM
-        if "oom" in error_str or "out of memory" in error_str:
-            logger.warning(
-                f"GPU OOM detected, falling back to CPU. Error: {e}"
-            )
-
-            try:
-                engine_lang = (lang or "en").strip().lower()
-                if engine_lang in _ocr_engines:
-                    from paddleocr import PaddleOCR
-                    original_engine = _ocr_engines[engine_lang]
-                    ocr_params = {"lang": engine_lang}
-                    _ocr_engines[engine_lang] = PaddleOCR(**ocr_params)
-                    result = run_ocr(image_bytes, lang, min_confidence)
-                    _ocr_engines[engine_lang] = original_engine
-                    return result
-                else:
-                    return run_ocr(image_bytes, lang, min_confidence)
-            except Exception:
-                raise
-        else:
-            raise

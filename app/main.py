@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.routers import ocr, jobs, health
 from app.services.ocr_engine import get_ocr_engine, is_engine_ready
+from app.services.structured_job_store import get_structured_job_repository
 from app.utils.metrics import set_model_ready
 
 # Configure logging
@@ -50,6 +51,11 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("Application shutting down")
     app.state.ocr_ready = False
+    try:
+        get_structured_job_repository().close()
+        logger.info("Structured job repository pool closed")
+    except Exception:
+        logger.exception("Error closing structured job repository pool")
 
 
 # Create FastAPI application
