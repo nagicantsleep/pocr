@@ -1,0 +1,188 @@
+{
+  "name": "simple_006",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T4444444444444",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "請求No. INV-2026-006",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          260,
+          45
+        ],
+        "bottom_right": [
+          450,
+          65
+        ]
+      }
+    },
+    {
+      "text": "取引日 2026-06-15",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          220,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社静岡製作所",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          230,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社茨城",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "部品A 100 50000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "部品B 50 75000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "小計 125000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          310
+        ],
+        "bottom_right": [
+          200,
+          330
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 12500",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          345
+        ],
+        "bottom_right": [
+          230,
+          365
+        ]
+      }
+    },
+    {
+      "text": "合計 137500",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          380
+        ],
+        "bottom_right": [
+          190,
+          400
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T4444444444444",
+    "transaction_date": "2026-06-15",
+    "invoice_number": "INV-2026-006",
+    "total_amount": 137500,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 12500
+    },
+    "issuer_name": "株式会社静岡製作所",
+    "recipient_name": "株式会社茨城",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

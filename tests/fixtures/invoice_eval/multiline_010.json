@@ -1,0 +1,216 @@
+{
+  "name": "multiline_010",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T5555666677778",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-01-25",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社大分化学",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 有限会社佐賀",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          260,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "試薬セットA",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          180,
+          255
+        ]
+      }
+    },
+    {
+      "text": "研究用高純度 10 350000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          310,
+          280
+        ]
+      }
+    },
+    {
+      "text": "実験器具セット",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          200,
+          320
+        ]
+      }
+    },
+    {
+      "text": "ガラス器具・測定器 5 175000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          330,
+          345
+        ]
+      }
+    },
+    {
+      "text": "安全キャビネット",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          365
+        ],
+        "bottom_right": [
+          210,
+          385
+        ]
+      }
+    },
+    {
+      "text": "ドラフト付き 2 500000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          390
+        ],
+        "bottom_right": [
+          290,
+          410
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 102500",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          435
+        ],
+        "bottom_right": [
+          240,
+          455
+        ]
+      }
+    },
+    {
+      "text": "合計 1127500",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          470
+        ],
+        "bottom_right": [
+          210,
+          490
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T5555666677778",
+    "transaction_date": "2026-01-25",
+    "invoice_number": null,
+    "total_amount": 1127500,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 102500
+    },
+    "issuer_name": "株式会社大分化学",
+    "recipient_name": "有限会社佐賀",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

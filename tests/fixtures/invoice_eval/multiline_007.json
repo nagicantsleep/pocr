@@ -1,0 +1,188 @@
+{
+  "name": "multiline_007",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T2222333344445",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-10-01",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社岐阜運送",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社静岡",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "海上輸送サービス",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          230,
+          255
+        ]
+      }
+    },
+    {
+      "text": "横浜→上海 2 600000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          300,
+          280
+        ]
+      }
+    },
+    {
+      "text": "通関手続き代行",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          210,
+          320
+        ]
+      }
+    },
+    {
+      "text": "輸出書類作成含む 1 80000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          300,
+          345
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 68000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          370
+        ],
+        "bottom_right": [
+          230,
+          390
+        ]
+      }
+    },
+    {
+      "text": "合計 748000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          405
+        ],
+        "bottom_right": [
+          190,
+          425
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T2222333344445",
+    "transaction_date": "2026-10-01",
+    "invoice_number": null,
+    "total_amount": 748000,
+    "tax_by_rate": {
+      "8%": 68000,
+      "10%": 68000
+    },
+    "issuer_name": "株式会社岐阜運送",
+    "recipient_name": "株式会社静岡",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

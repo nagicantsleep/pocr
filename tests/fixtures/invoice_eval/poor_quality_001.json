@@ -1,0 +1,174 @@
+{
+  "name": "poor_quality_001",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.72,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T1234567890123",
+      "confidence": 0.65,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-01-15",
+      "confidence": 0.68,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社テスト商会",
+      "confidence": 0.62,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 サンフル株式会社",
+      "confidence": 0.6,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          300,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.7,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "VCTケーブ 2 90000",
+      "confidence": 0.55,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "現場費耗品 1 15000",
+      "confidence": 0.52,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "小計 105000",
+      "confidence": 0.68,
+      "bbox": {
+        "top_left": [
+          50,
+          310
+        ],
+        "bottom_right": [
+          200,
+          330
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 10500",
+      "confidence": 0.66,
+      "bbox": {
+        "top_left": [
+          50,
+          345
+        ],
+        "bottom_right": [
+          230,
+          365
+        ]
+      }
+    },
+    {
+      "text": "合計 115500",
+      "confidence": 0.7,
+      "bbox": {
+        "top_left": [
+          50,
+          380
+        ],
+        "bottom_right": [
+          200,
+          400
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T1234567890123",
+    "transaction_date": "2026-01-15",
+    "invoice_number": null,
+    "total_amount": 115500,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 10500
+    },
+    "issuer_name": "株式会社テスト商会",
+    "recipient_name": "サンフル株式会社",
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

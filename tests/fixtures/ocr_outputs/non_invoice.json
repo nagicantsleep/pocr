@@ -1,0 +1,7 @@
+[
+  {"text": "会議録", "confidence": 0.97, "bbox": {"top_left": [50, 10], "bottom_right": [120, 30]}},
+  {"text": "日時: 2026-04-10 14:00", "confidence": 0.95, "bbox": {"top_left": [50, 40], "bottom_right": [220, 60]}},
+  {"text": "場所: 第3会議室", "confidence": 0.94, "bbox": {"top_left": [50, 70], "bottom_right": [200, 90]}},
+  {"text": "出席者: 田中, 佐藤, 鈴木", "confidence": 0.93, "bbox": {"top_left": [50, 100], "bottom_right": [280, 120]}},
+  {"text": "議題: 新プロジェクトの進捗について", "confidence": 0.92, "bbox": {"top_left": [50, 130], "bottom_right": [300, 150]}}
+]

@@ -1,0 +1,202 @@
+{
+  "name": "mixed_tax_005",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T5555000066667",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-09-25",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社佐賀工業",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社長崎",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "加工品A 200 60000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "加工品B 100 40000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "電化製品 5 500000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          305
+        ],
+        "bottom_right": [
+          400,
+          325
+        ]
+      }
+    },
+    {
+      "text": "小計 600000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          345
+        ],
+        "bottom_right": [
+          200,
+          365
+        ]
+      }
+    },
+    {
+      "text": "消費税 8% 8000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          380
+        ],
+        "bottom_right": [
+          220,
+          400
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 50000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          260,
+          380
+        ],
+        "bottom_right": [
+          420,
+          400
+        ]
+      }
+    },
+    {
+      "text": "合計 658000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          415
+        ],
+        "bottom_right": [
+          190,
+          435
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T5555000066667",
+    "transaction_date": "2026-09-25",
+    "invoice_number": null,
+    "total_amount": 658000,
+    "tax_by_rate": {
+      "8%": 8000,
+      "10%": 50000
+    },
+    "issuer_name": "株式会社佐賀工業",
+    "recipient_name": "株式会社長崎",
+    "line_items_count": 1,
+    "needs_review": false
+  }
+}

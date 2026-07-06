@@ -1,0 +1,118 @@
+{
+  "name": "receipt_004",
+  "ocr_lines": [
+    {
+      "text": "領収書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          130,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T6666555544433",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行 2026-08-30",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          180,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社ドラッグストア松本",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          290,
+          135
+        ]
+      }
+    },
+    {
+      "text": "お買上 金額 ¥128,000",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          155
+        ],
+        "bottom_right": [
+          250,
+          175
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 11,636",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          190
+        ],
+        "bottom_right": [
+          220,
+          210
+        ]
+      }
+    },
+    {
+      "text": "合計 128,000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          225
+        ],
+        "bottom_right": [
+          190,
+          245
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T6666555544433",
+    "transaction_date": "2026-08-30",
+    "invoice_number": null,
+    "total_amount": 128000,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 11636
+    },
+    "issuer_name": "株式会社ドラッグストア松本",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

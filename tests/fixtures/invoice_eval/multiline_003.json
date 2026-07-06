@@ -1,0 +1,202 @@
+{
+  "name": "multiline_003",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T7777888899999",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-06-01",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社栃木食品",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社茨城",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "和牛サーロイン",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          190,
+          255
+        ]
+      }
+    },
+    {
+      "text": "国産A5ランク 1 50000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          300,
+          280
+        ]
+      }
+    },
+    {
+      "text": "オーガニック野菜",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          200,
+          320
+        ]
+      }
+    },
+    {
+      "text": "季節の詰め合わせ 5 15000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          310,
+          345
+        ]
+      }
+    },
+    {
+      "text": "小計 65000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          365
+        ],
+        "bottom_right": [
+          200,
+          385
+        ]
+      }
+    },
+    {
+      "text": "消費税 8% 5200",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          400
+        ],
+        "bottom_right": [
+          220,
+          420
+        ]
+      }
+    },
+    {
+      "text": "合計 70200",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          435
+        ],
+        "bottom_right": [
+          190,
+          455
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T7777888899999",
+    "transaction_date": "2026-06-01",
+    "invoice_number": null,
+    "total_amount": 70200,
+    "tax_by_rate": {
+      "8%": 5200,
+      "10%": null
+    },
+    "issuer_name": "株式会社栃木食品",
+    "recipient_name": "株式会社茨城",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

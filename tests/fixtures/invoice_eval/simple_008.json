@@ -1,0 +1,132 @@
+{
+  "name": "simple_008",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T6666666666666",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-08-12",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社愛媛産業",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社香川",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "コンサルティング料 200000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          270,
+          220
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 20000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          240
+        ],
+        "bottom_right": [
+          230,
+          260
+        ]
+      }
+    },
+    {
+      "text": "合計 220000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          280
+        ],
+        "bottom_right": [
+          190,
+          300
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T6666666666666",
+    "transaction_date": "2026-08-12",
+    "invoice_number": null,
+    "total_amount": 220000,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 20000
+    },
+    "issuer_name": "株式会社愛媛産業",
+    "recipient_name": "株式会社香川",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

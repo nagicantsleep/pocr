@@ -1,0 +1,160 @@
+{
+  "name": "simple_014",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T3434343434343",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-04-18",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社富山設備",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          230,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 有限会社石川",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          260,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "空調点検 1 35000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "配管修理 1 28000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 6300",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          310
+        ],
+        "bottom_right": [
+          230,
+          330
+        ]
+      }
+    },
+    {
+      "text": "合計 69300",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          345
+        ],
+        "bottom_right": [
+          180,
+          365
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T3434343434343",
+    "transaction_date": "2026-04-18",
+    "invoice_number": null,
+    "total_amount": 69300,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 6300
+    },
+    "issuer_name": "株式会社富山設備",
+    "recipient_name": "有限会社石川",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

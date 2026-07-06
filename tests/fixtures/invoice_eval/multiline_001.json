@@ -1,0 +1,230 @@
+{
+  "name": "multiline_001",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T5555666677777",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-04-01",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社東京電機",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社神奈川",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          250,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "システム開発費",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          250,
+          255
+        ]
+      }
+    },
+    {
+      "text": "（基本設計～結合テスト）",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          300,
+          280
+        ]
+      }
+    },
+    {
+      "text": "1 800000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          300,
+          250
+        ],
+        "bottom_right": [
+          400,
+          280
+        ]
+      }
+    },
+    {
+      "text": "サーバーメンテナンス",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          270,
+          320
+        ]
+      }
+    },
+    {
+      "text": "月額保守料金含む",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          250,
+          345
+        ]
+      }
+    },
+    {
+      "text": "3 120000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          300,
+          315
+        ],
+        "bottom_right": [
+          420,
+          345
+        ]
+      }
+    },
+    {
+      "text": "小計 920000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          365
+        ],
+        "bottom_right": [
+          200,
+          385
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 92000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          400
+        ],
+        "bottom_right": [
+          230,
+          420
+        ]
+      }
+    },
+    {
+      "text": "合計 1012000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          435
+        ],
+        "bottom_right": [
+          200,
+          455
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T5555666677777",
+    "transaction_date": "2026-04-01",
+    "invoice_number": null,
+    "total_amount": 1012000,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 92000
+    },
+    "issuer_name": "株式会社東京電機",
+    "recipient_name": "株式会社神奈川",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

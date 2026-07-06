@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routers import ocr, jobs, health
+from app.routers import ocr, jobs, health, invoice
 from app.services.ocr_engine import get_ocr_engine, is_engine_ready
 from app.services.structured_job_store import get_structured_job_repository
+from app.repositories.invoice_repository import get_invoice_repository
 from app.utils.metrics import set_model_ready
 
 # Configure logging
@@ -56,6 +57,12 @@ async def lifespan(app: FastAPI):
         logger.info("Structured job repository pool closed")
     except Exception:
         logger.exception("Error closing structured job repository pool")
+
+    try:
+        get_invoice_repository().close()
+        logger.info("Invoice repository pool closed")
+    except Exception:
+        logger.exception("Error closing invoice repository pool")
 
 
 # Create FastAPI application
@@ -111,6 +118,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(ocr.router)
+app.include_router(invoice.router)
 app.include_router(jobs.router)
 app.include_router(health.router)
 

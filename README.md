@@ -76,6 +76,62 @@ docker-compose -f docker-compose.gpu.yml up --build
 | `GET /health/live` | Liveness | Liveness probe |
 | `GET /metrics` | Metrics | Prometheus metrics |
 
+### Invoice Extraction API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/invoice/extract` | POST | Extract invoice data from image upload |
+| `/invoice/extract/json` | POST | Extract invoice data from base64 JSON |
+| `/invoice/debug` | POST | Debug mode with OCR, layout, regex candidates, table candidates |
+| `/invoice/batch` | POST | Process multiple invoice images |
+
+#### Extract from image upload
+```bash
+curl -X POST http://localhost:8000/invoice/extract \
+  -H "X-API-Key: your-api-key" \
+  -F "file=@invoice.png"
+```
+
+#### Extract from base64
+```bash
+curl -X POST http://localhost:8000/invoice/extract/json \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"image": "base64-encoded-image", "mode": "strict"}'
+```
+
+#### Response
+```json
+{
+  "request_id": "uuid",
+  "status": "success",
+  "document_type": "qualified_invoice",
+  "invoice": { },
+  "confidence": { },
+  "line_items_status": "extracted",
+  "validation": { },
+  "needs_review": false
+}
+```
+
+#### Configuration
+
+See `.env.example` for invoice-specific settings including:
+- `INVOICE_ENABLE_EXTRACTION` - toggle extraction on/off
+- `INVOICE_REVIEW_THRESHOLD` - confidence threshold for human review
+- `INVOICE_MAX_AUTO_APPROVE_AMOUNT` - auto-approve ceiling
+- `INVOICE_ENABLE_LLM_EXTRACTOR` / `INVOICE_LLM_PROVIDER` / `INVOICE_LLM_MODEL` - optional LLM extraction
+
+#### Japanese Invoice Fields
+- Registration number (T + 13 digits)
+- Transaction date
+- Invoice number
+- Total amount
+- Tax breakdown (8% and 10%)
+- Issuer name
+- Recipient name
+- Line items (optional)
+
 ## Usage Examples
 
 ### Single Image OCR (curl)

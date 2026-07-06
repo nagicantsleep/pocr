@@ -1,0 +1,132 @@
+{
+  "name": "edge_no_registration",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-06-01",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社登録なし商事",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          240,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社東京",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "サービス 1 50000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 5000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          280
+        ],
+        "bottom_right": [
+          230,
+          300
+        ]
+      }
+    },
+    {
+      "text": "合計 55000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          315
+        ],
+        "bottom_right": [
+          190,
+          335
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": null,
+    "issuer_registration_number": null,
+    "transaction_date": "2026-06-01",
+    "invoice_number": null,
+    "total_amount": 55000,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 5000
+    },
+    "issuer_name": "株式会社登録なし商事",
+    "recipient_name": "株式会社東京",
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

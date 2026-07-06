@@ -66,6 +66,20 @@ class Settings(BaseSettings):
     STANDARDIZER_RATE_LIMIT_TTL_SECONDS: int = 60
     STANDARDIZER_RETRYABLE_STATUS_CODES: str = "429,502,503,504"
 
+    # Invoice extraction
+    INVOICE_ENABLE_EXTRACTION: bool = True
+    INVOICE_DEFAULT_LANG: str = "japan"
+    INVOICE_REVIEW_THRESHOLD: float = 0.85
+    INVOICE_INCLUDE_OCR: bool = False
+    INVOICE_MAX_AUTO_APPROVE_AMOUNT: int = 1000000
+    INVOICE_ENABLE_VENDOR_MATCHING: bool = False
+    INVOICE_ENABLE_DUPLICATE_CHECK: bool = False
+    INVOICE_STORAGE_BACKEND: str = "postgres"
+    INVOICE_STORAGE_PATH: str = "./data/invoices"
+    INVOICE_ENABLE_LLM_EXTRACTOR: bool = False
+    INVOICE_LLM_PROVIDER: str = ""
+    INVOICE_LLM_MODEL: str = ""
+
     # Async Processing
     ASYNC_WORKERS: int = 4
 

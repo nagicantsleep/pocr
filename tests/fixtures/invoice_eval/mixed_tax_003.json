@@ -1,0 +1,188 @@
+{
+  "name": "mixed_tax_003",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T3333000044445",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-07-20",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社香川物流",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          230,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社徳島",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "米50kg 10 50000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "電子機器 5 200000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "小計 250000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          310
+        ],
+        "bottom_right": [
+          200,
+          330
+        ]
+      }
+    },
+    {
+      "text": "消費税 8% 4000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          345
+        ],
+        "bottom_right": [
+          220,
+          365
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 20000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          380
+        ],
+        "bottom_right": [
+          230,
+          400
+        ]
+      }
+    },
+    {
+      "text": "合計 274000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          415
+        ],
+        "bottom_right": [
+          190,
+          435
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T3333000044445",
+    "transaction_date": "2026-07-20",
+    "invoice_number": null,
+    "total_amount": 274000,
+    "tax_by_rate": {
+      "8%": 4000,
+      "10%": 20000
+    },
+    "issuer_name": "株式会社香川物流",
+    "recipient_name": "株式会社徳島",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "name": "non_invoice_001",
+  "ocr_lines": [
+    {
+      "text": "会議録",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          120,
+          30
+        ]
+      }
+    },
+    {
+      "text": "日時: 2026-04-10 14:00",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          220,
+          65
+        ]
+      }
+    },
+    {
+      "text": "場所: 第3会議室",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "出席者: 田中, 佐藤, 鈴木",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          280,
+          135
+        ]
+      }
+    },
+    {
+      "text": "議題: 新プロジェクトの進捗について",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          150
+        ],
+        "bottom_right": [
+          300,
+          170
+        ]
+      }
+    },
+    {
+      "text": "来週までに各担当者が報告書を提出",
+      "confidence": 0.91,
+      "bbox": {
+        "top_left": [
+          50,
+          185
+        ],
+        "bottom_right": [
+          320,
+          205
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": null,
+    "issuer_registration_number": null,
+    "transaction_date": "2026-04-10",
+    "invoice_number": null,
+    "total_amount": null,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": null
+    },
+    "issuer_name": null,
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

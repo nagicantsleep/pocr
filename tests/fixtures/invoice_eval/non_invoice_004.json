@@ -1,0 +1,118 @@
+{
+  "name": "non_invoice_004",
+  "ocr_lines": [
+    {
+      "text": "発注書",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          120,
+          30
+        ]
+      }
+    },
+    {
+      "text": "発注番号 PO-2026-001",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          50
+        ],
+        "bottom_right": [
+          240,
+          70
+        ]
+      }
+    },
+    {
+      "text": "仕入先: 株式会社C",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          90
+        ],
+        "bottom_right": [
+          210,
+          110
+        ]
+      }
+    },
+    {
+      "text": "納期: 2026-05-30",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          130
+        ],
+        "bottom_right": [
+          200,
+          150
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 単価",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          170
+        ],
+        "bottom_right": [
+          300,
+          190
+        ]
+      }
+    },
+    {
+      "text": "部品X 100 500",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          210
+        ],
+        "bottom_right": [
+          250,
+          230
+        ]
+      }
+    },
+    {
+      "text": "部品Y 200 300",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          250
+        ],
+        "bottom_right": [
+          250,
+          270
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": null,
+    "issuer_registration_number": null,
+    "transaction_date": "2026-05-30",
+    "invoice_number": null,
+    "total_amount": null,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": null
+    },
+    "issuer_name": "仕入先: 株式会社C",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

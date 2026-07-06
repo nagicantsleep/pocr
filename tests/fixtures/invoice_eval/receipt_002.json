@@ -1,0 +1,118 @@
+{
+  "name": "receipt_002",
+  "ocr_lines": [
+    {
+      "text": "レシート",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          140,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T8888777766655",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "2026-04-20",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          160,
+          100
+        ]
+      }
+    },
+    {
+      "text": "スーパー株式会社マルエイ",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          250,
+          135
+        ]
+      }
+    },
+    {
+      "text": "内消費税 8% 240",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          155
+        ],
+        "bottom_right": [
+          210,
+          175
+        ]
+      }
+    },
+    {
+      "text": "内消費税 10% 450",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          190
+        ],
+        "bottom_right": [
+          210,
+          210
+        ]
+      }
+    },
+    {
+      "text": "合計 8,450",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          225
+        ],
+        "bottom_right": [
+          175,
+          245
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T8888777766655",
+    "transaction_date": "2026-04-20",
+    "invoice_number": null,
+    "total_amount": 8450,
+    "tax_by_rate": {
+      "8%": 240,
+      "10%": 450
+    },
+    "issuer_name": "スーパー株式会社マルエイ",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

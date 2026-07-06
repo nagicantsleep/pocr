@@ -1,0 +1,118 @@
+{
+  "name": "non_invoice_003",
+  "ocr_lines": [
+    {
+      "text": "業務委託契約書",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          200,
+          30
+        ]
+      }
+    },
+    {
+      "text": "発注者: 株式会社A",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          50
+        ],
+        "bottom_right": [
+          200,
+          70
+        ]
+      }
+    },
+    {
+      "text": "受注者: 株式会社B",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          90
+        ],
+        "bottom_right": [
+          200,
+          110
+        ]
+      }
+    },
+    {
+      "text": "契約金額: 5,000,000円",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          130
+        ],
+        "bottom_right": [
+          260,
+          150
+        ]
+      }
+    },
+    {
+      "text": "契約期間: 2026年4月1日から",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          170
+        ],
+        "bottom_right": [
+          270,
+          190
+        ]
+      }
+    },
+    {
+      "text": "第1条 目的",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          210
+        ],
+        "bottom_right": [
+          150,
+          230
+        ]
+      }
+    },
+    {
+      "text": "第2条 業務内容",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          250
+        ],
+        "bottom_right": [
+          170,
+          270
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": null,
+    "issuer_registration_number": null,
+    "transaction_date": "2026-04-01",
+    "invoice_number": null,
+    "total_amount": null,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": null
+    },
+    "issuer_name": "発注者: 株式会社A",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

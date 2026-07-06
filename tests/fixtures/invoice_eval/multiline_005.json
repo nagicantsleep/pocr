@@ -1,0 +1,216 @@
+{
+  "name": "multiline_005",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T9999000011111",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-08-05",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社新潟印刷",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社富山",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "パンフレットA4",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          200,
+          255
+        ]
+      }
+    },
+    {
+      "text": "両面4色カラー 5000 150000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          330,
+          280
+        ]
+      }
+    },
+    {
+      "text": "名刺印刷",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          160,
+          320
+        ]
+      }
+    },
+    {
+      "text": "マット紙 1000 25000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          270,
+          345
+        ]
+      }
+    },
+    {
+      "text": "ポスターA2",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          365
+        ],
+        "bottom_right": [
+          180,
+          385
+        ]
+      }
+    },
+    {
+      "text": "UV印刷 200 80000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          390
+        ],
+        "bottom_right": [
+          260,
+          410
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 25500",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          430
+        ],
+        "bottom_right": [
+          230,
+          450
+        ]
+      }
+    },
+    {
+      "text": "合計 280500",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          465
+        ],
+        "bottom_right": [
+          190,
+          485
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T9999000011111",
+    "transaction_date": "2026-08-05",
+    "invoice_number": null,
+    "total_amount": 280500,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 25500
+    },
+    "issuer_name": "株式会社新潟印刷",
+    "recipient_name": "株式会社富山",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

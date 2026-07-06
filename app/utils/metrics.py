@@ -147,6 +147,42 @@ def set_model_ready(model_type: str, ready: bool) -> None:
     model_ready.labels(model_type=model_type).set(1 if ready else 0)
 
 
+# Invoice metrics (to be emitted when invoice features land)
+INVOICE_EXTRACT_TOTAL = "invoice_extract_total"
+INVOICE_EXTRACT_SUCCESS_TOTAL = "invoice_extract_success_total"
+INVOICE_EXTRACT_ERROR_TOTAL = "invoice_extract_error_total"
+INVOICE_EXTRACT_NEEDS_REVIEW_TOTAL = "invoice_extract_needs_review_total"
+INVOICE_PROCESSING_DURATION_SECONDS = "invoice_processing_duration_seconds"
+INVOICE_FIELD_CONFIDENCE_AVG = "invoice_field_confidence_avg"
+INVOICE_VALIDATION_ERROR_TOTAL = "invoice_validation_error_total"
+INVOICE_LINE_ITEMS_EXTRACTED_TOTAL = "invoice_line_items_extracted_total"
+INVOICE_LINE_ITEMS_NEEDS_REVIEW_TOTAL = "invoice_line_items_needs_review_total"
+INVOICE_LINE_ITEMS_CONFIDENCE_AVG = "invoice_line_items_confidence_avg"
+INVOICE_TABLE_DETECTION_FAILED_TOTAL = "invoice_table_detection_failed_total"
+
+
+def record_invoice_request(
+    endpoint: str,
+    status: str,
+    duration: float,
+    batch_size: int | None = None,
+) -> None:
+    """
+    Record metrics for an invoice request.
+
+    Args:
+        endpoint: API endpoint (e.g., "/invoice/extract")
+        status: Request status (success, error)
+        duration: Request duration in seconds
+        batch_size: Number of images in batch (if applicable)
+    """
+    ocr_requests_total.labels(endpoint=endpoint, lang="invoice", status=status).inc()
+    ocr_request_duration_seconds.labels(endpoint=endpoint, lang="invoice").observe(duration)
+
+    if batch_size is not None:
+        ocr_batch_size.labels(job_type="sync").observe(batch_size)
+
+
 def metrics_endpoint() -> tuple[bytes, str]:
     """
     Get Prometheus metrics in proper format.

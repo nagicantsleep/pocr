@@ -1,0 +1,104 @@
+{
+  "name": "non_invoice_002",
+  "ocr_lines": [
+    {
+      "text": "履歴書",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          120,
+          30
+        ]
+      }
+    },
+    {
+      "text": "氏名: 山田太郎",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          50
+        ],
+        "bottom_right": [
+          200,
+          70
+        ]
+      }
+    },
+    {
+      "text": "生年月日: 1990年4月1日",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          90
+        ],
+        "bottom_right": [
+          240,
+          110
+        ]
+      }
+    },
+    {
+      "text": "住所: 東京都千代田区",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          130
+        ],
+        "bottom_right": [
+          240,
+          150
+        ]
+      }
+    },
+    {
+      "text": "学歴: 東京大学工学部",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          170
+        ],
+        "bottom_right": [
+          230,
+          190
+        ]
+      }
+    },
+    {
+      "text": "職歴: 株式会社ABC（2015-2020）",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          210
+        ],
+        "bottom_right": [
+          310,
+          230
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": null,
+    "issuer_registration_number": null,
+    "transaction_date": "1990-04-01",
+    "invoice_number": null,
+    "total_amount": null,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": null
+    },
+    "issuer_name": "職歴: 株式会社ABC（2015-2020）",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

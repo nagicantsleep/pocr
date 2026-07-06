@@ -1,0 +1,160 @@
+{
+  "name": "poor_quality_005",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.65,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T8888777766665",
+      "confidence": 0.6,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          260,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-12-15",
+      "confidence": 0.62,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社北海道水産",
+      "confidence": 0.58,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          230,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 有限会社青森",
+      "confidence": 0.55,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          250,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.6,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "鮭切り身 100 80000",
+      "confidence": 0.52,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "ほたて 50 60000",
+      "confidence": 0.5,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "消費税 8% 11200",
+      "confidence": 0.58,
+      "bbox": {
+        "top_left": [
+          50,
+          315
+        ],
+        "bottom_right": [
+          220,
+          335
+        ]
+      }
+    },
+    {
+      "text": "合計 151200",
+      "confidence": 0.6,
+      "bbox": {
+        "top_left": [
+          50,
+          350
+        ],
+        "bottom_right": [
+          190,
+          370
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T8888777766665",
+    "transaction_date": "2026-12-15",
+    "invoice_number": null,
+    "total_amount": 151200,
+    "tax_by_rate": {
+      "8%": 11200,
+      "10%": null
+    },
+    "issuer_name": "株式会社北海道水産",
+    "recipient_name": "有限会社青森",
+    "line_items_count": 0,
+    "needs_review": true
+  }
+}

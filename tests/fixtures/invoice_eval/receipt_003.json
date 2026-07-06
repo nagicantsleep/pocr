@@ -1,0 +1,104 @@
+{
+  "name": "receipt_003",
+  "ocr_lines": [
+    {
+      "text": "簡易請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          170,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T7777666655544",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "日付 2026-06-01",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          180,
+          100
+        ]
+      }
+    },
+    {
+      "text": "有限会社山本商店",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "金額 32,400",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          155
+        ],
+        "bottom_right": [
+          170,
+          175
+        ]
+      }
+    },
+    {
+      "text": "合計 32,400",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          190
+        ],
+        "bottom_right": [
+          180,
+          210
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T7777666655544",
+    "transaction_date": "2026-06-01",
+    "invoice_number": null,
+    "total_amount": 32400,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": null
+    },
+    "issuer_name": "有限会社山本商店",
+    "recipient_name": null,
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

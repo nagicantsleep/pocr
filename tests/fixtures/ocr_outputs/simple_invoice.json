@@ -1,0 +1,21 @@
+[
+  {"text": "請求書", "confidence": 0.98, "bbox": {"top_left": [50, 10], "bottom_right": [150, 30]}},
+  {"text": "登録番号 T1234567890123", "confidence": 0.97, "bbox": {"top_left": [50, 40], "bottom_right": [250, 60]}},
+  {"text": "発行日 2026-03-15", "confidence": 0.96, "bbox": {"top_left": [50, 70], "bottom_right": [200, 90]}},
+  {"text": "御中 株式会社テスト商店", "confidence": 0.95, "bbox": {"top_left": [50, 110], "bottom_right": [280, 130]}},
+  {"text": "品名", "confidence": 0.94, "bbox": {"top_left": [50, 160], "bottom_right": [100, 180]}},
+  {"text": "数量", "confidence": 0.94, "bbox": {"top_left": [200, 160], "bottom_right": [250, 180]}},
+  {"text": "単価", "confidence": 0.94, "bbox": {"top_left": [300, 160], "bottom_right": [350, 180]}},
+  {"text": "金額", "confidence": 0.94, "bbox": {"top_left": [400, 160], "bottom_right": [450, 180]}},
+  {"text": "VCTケーブル", "confidence": 0.93, "bbox": {"top_left": [50, 190], "bottom_right": [180, 210]}},
+  {"text": "2", "confidence": 0.95, "bbox": {"top_left": [210, 190], "bottom_right": [230, 210]}},
+  {"text": "45000", "confidence": 0.96, "bbox": {"top_left": [300, 190], "bottom_right": [370, 210]}},
+  {"text": "90000", "confidence": 0.96, "bbox": {"top_left": [400, 190], "bottom_right": [460, 210]}},
+  {"text": "現場消耗品", "confidence": 0.93, "bbox": {"top_left": [50, 220], "bottom_right": [180, 240]}},
+  {"text": "1", "confidence": 0.95, "bbox": {"top_left": [210, 220], "bottom_right": [230, 240]}},
+  {"text": "15000", "confidence": 0.96, "bbox": {"top_left": [300, 220], "bottom_right": [370, 240]}},
+  {"text": "15000", "confidence": 0.96, "bbox": {"top_left": [400, 220], "bottom_right": [460, 240]}},
+  {"text": "小計 105000", "confidence": 0.95, "bbox": {"top_left": [50, 270], "bottom_right": [200, 290]}},
+  {"text": "消費税 10% 10500", "confidence": 0.95, "bbox": {"top_left": [50, 300], "bottom_right": [230, 320]}},
+  {"text": "合計 115500", "confidence": 0.96, "bbox": {"top_left": [50, 330], "bottom_right": [200, 350]}}
+]

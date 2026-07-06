@@ -1,0 +1,160 @@
+{
+  "name": "simple_015",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T4545454545454",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-07-30",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社岐阜建設",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          230,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 株式会社埼玉",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          240,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "鉄骨材 100 500000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          400,
+          255
+        ]
+      }
+    },
+    {
+      "text": "コンクリート 50 250000",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          270
+        ],
+        "bottom_right": [
+          400,
+          290
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 75000",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          315
+        ],
+        "bottom_right": [
+          230,
+          335
+        ]
+      }
+    },
+    {
+      "text": "お支払い合計 825000",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          350
+        ],
+        "bottom_right": [
+          230,
+          370
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T4545454545454",
+    "transaction_date": "2026-07-30",
+    "invoice_number": null,
+    "total_amount": 825000,
+    "tax_by_rate": {
+      "8%": null,
+      "10%": 75000
+    },
+    "issuer_name": "株式会社岐阜建設",
+    "recipient_name": "株式会社埼玉",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

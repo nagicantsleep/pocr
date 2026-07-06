@@ -1,0 +1,188 @@
+{
+  "name": "multiline_004",
+  "ocr_lines": [
+    {
+      "text": "請求書",
+      "confidence": 0.98,
+      "bbox": {
+        "top_left": [
+          50,
+          10
+        ],
+        "bottom_right": [
+          150,
+          30
+        ]
+      }
+    },
+    {
+      "text": "登録番号 T8888999900000",
+      "confidence": 0.97,
+      "bbox": {
+        "top_left": [
+          50,
+          45
+        ],
+        "bottom_right": [
+          250,
+          65
+        ]
+      }
+    },
+    {
+      "text": "発行日 2026-07-10",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          80
+        ],
+        "bottom_right": [
+          200,
+          100
+        ]
+      }
+    },
+    {
+      "text": "株式会社群馬機械",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          115
+        ],
+        "bottom_right": [
+          220,
+          135
+        ]
+      }
+    },
+    {
+      "text": "御中 有限会社長野",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          160
+        ],
+        "bottom_right": [
+          250,
+          180
+        ]
+      }
+    },
+    {
+      "text": "品名 数量 金額",
+      "confidence": 0.94,
+      "bbox": {
+        "top_left": [
+          50,
+          200
+        ],
+        "bottom_right": [
+          400,
+          220
+        ]
+      }
+    },
+    {
+      "text": "CNCフライス盤",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          235
+        ],
+        "bottom_right": [
+          190,
+          255
+        ]
+      }
+    },
+    {
+      "text": "型式MC-3000 1 2800000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          260
+        ],
+        "bottom_right": [
+          320,
+          280
+        ]
+      }
+    },
+    {
+      "text": "切削工具セット",
+      "confidence": 0.93,
+      "bbox": {
+        "top_left": [
+          50,
+          300
+        ],
+        "bottom_right": [
+          190,
+          320
+        ]
+      }
+    },
+    {
+      "text": "エンドミル・ドリル含む 3 45000",
+      "confidence": 0.92,
+      "bbox": {
+        "top_left": [
+          50,
+          325
+        ],
+        "bottom_right": [
+          340,
+          345
+        ]
+      }
+    },
+    {
+      "text": "消費税 10% 284500",
+      "confidence": 0.95,
+      "bbox": {
+        "top_left": [
+          50,
+          370
+        ],
+        "bottom_right": [
+          240,
+          390
+        ]
+      }
+    },
+    {
+      "text": "合計 3129500",
+      "confidence": 0.96,
+      "bbox": {
+        "top_left": [
+          50,
+          405
+        ],
+        "bottom_right": [
+          200,
+          425
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "document_type": "qualified_invoice",
+    "issuer_registration_number": "T8888999900000",
+    "transaction_date": "2026-07-10",
+    "invoice_number": null,
+    "total_amount": 3129500,
+    "tax_by_rate": {
+      "8%": 284500,
+      "10%": 284500
+    },
+    "issuer_name": "株式会社群馬機械",
+    "recipient_name": "有限会社長野",
+    "line_items_count": 0,
+    "needs_review": false
+  }
+}

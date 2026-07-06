@@ -1,0 +1,7 @@
+[
+  {"text": "領収書", "confidence": 0.98, "bbox": {"top_left": [50, 10], "bottom_right": [130, 30]}},
+  {"text": "日付 2026-05-01", "confidence": 0.96, "bbox": {"top_left": [50, 40], "bottom_right": [180, 60]}},
+  {"text": "株式会社ABC商会", "confidence": 0.95, "bbox": {"top_left": [50, 70], "bottom_right": [220, 90]}},
+  {"text": "金額 ¥50,000", "confidence": 0.94, "bbox": {"top_left": [50, 100], "bottom_right": [180, 120]}},
+  {"text": "但し 会議費として", "confidence": 0.93, "bbox": {"top_left": [50, 130], "bottom_right": [200, 150]}}
+]
