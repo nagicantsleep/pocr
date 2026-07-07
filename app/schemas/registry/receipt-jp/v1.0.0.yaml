@@ -1,0 +1,63 @@
+id: receipt-jp
+version: 1.0.0
+document_type: receipt
+locale: ja-JP
+currency: JPY
+fields:
+  - name: store_name
+    type: string
+    sources: [layout_header, regex_vendor]
+    required: true
+  - name: store_address
+    type: string
+    sources: [layout_label_address]
+    required: false
+  - name: store_phone
+    type: string
+    pattern: "^\\d{2,4}-\\d{2,4}-\\d{4}$"
+    sources: [regex_phone]
+    required: false
+  - name: receipt_number
+    type: string
+    sources: [layout_label_no, regex_invoice_no]
+    required: false
+  - name: transaction_date
+    type: date
+    pattern: "YYYY-MM-DD"
+    sources: [regex_wareki, regex_western]
+    required: true
+  - name: total_amount
+    type: money
+    sources: [layout_label_total, regex_amount_max]
+    required: true
+    cross_field:
+      - eq: subtotal + tax_amount
+  - name: tax_amount
+    type: money
+    sources: [regex_tax]
+    required: false
+  - name: subtotal
+    type: money
+    sources: [regex_subtotal]
+    required: false
+  - name: payment_method
+    type: string
+    sources: [regex_payment_method]
+    required: false
+  - name: change_amount
+    type: money
+    sources: [regex_change]
+    required: false
+  - name: line_items
+    type: array
+    item:
+      description: string
+      quantity: number
+      unit_price: money
+      amount: money
+      tax_rate: "enum[8pct, 10pct, non_taxable, exempt]"
+tables:
+  - id: line_items
+    source: table_visual
+    confidence: avg_cell
+review_threshold: 0.80
