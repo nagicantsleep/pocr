@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     STANDARDIZER_RATE_LIMIT_TTL_SECONDS: int = 60
     STANDARDIZER_RETRYABLE_STATUS_CODES: str = "429,502,503,504"
 
+    # Storage
+    STORAGE_BACKEND: str = "local"
+    STORAGE_PATH: str = "./data/storage"
+
     # Invoice extraction
     INVOICE_ENABLE_EXTRACTION: bool = True
     INVOICE_DEFAULT_LANG: str = "japan"

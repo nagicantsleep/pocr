@@ -1,0 +1,55 @@
+id: invoice-jp
+version: 1.0.0
+document_type: qualified_invoice
+locale: ja-JP
+currency: JPY
+fields:
+  - name: issuer_name
+    type: string
+    sources: [regex_vendor, layout_header, llm_fallback]
+    required: true
+  - name: issuer_registration_number
+    type: string
+    pattern: "^T\\d{13}$"
+    sources: [regex_reg_no]
+    required: true
+    validators:
+      - code: reg001
+        severity: error
+  - name: transaction_date
+    type: date
+    pattern: "YYYY-MM-DD"
+    sources: [regex_wareki, regex_western]
+    required: true
+  - name: invoice_number
+    type: string
+    sources: [layout_label_no, regex_invoice_no]
+    required: false
+  - name: total_amount
+    type: money
+    sources: [layout_label_total, regex_amount_max]
+    required: true
+    cross_field:
+      - eq: subtotal_8pct + subtotal_10pct + tax_8pct + tax_10pct
+  - name: tax_breakdown
+    type: object
+    properties:
+      rate_8pct:  { subtotal: money, tax: money }
+      rate_10pct: { subtotal: money, tax: money }
+  - name: line_items
+    type: array
+    item:
+      description: string
+      quantity: number
+      unit: string
+      unit_price: money
+      tax_rate: "enum[8pct, 10pct, non_taxable, exempt]"
+      amount_excluding_tax: money
+tables:
+  - id: line_items
+    source: table_visual
+    confidence: avg_cell
+review_threshold: 0.85
+prompt_template: |
+  Extract Japanese invoice fields from the OCR text below.
+  Return JSON only matching the schema.

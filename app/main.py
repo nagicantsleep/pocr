@@ -11,6 +11,9 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.routers import ocr, jobs, health, invoice
+from app.routers.v1 import invoice_jp as invoice_jp_v1
+from app.routers.v1 import audit as audit_v1
+from app.routers.v1 import webhooks as webhooks_v1
 from app.services.ocr_engine import get_ocr_engine, is_engine_ready
 from app.services.structured_job_store import get_structured_job_repository
 from app.repositories.invoice_repository import get_invoice_repository
@@ -121,6 +124,9 @@ app.include_router(ocr.router)
 app.include_router(invoice.router)
 app.include_router(jobs.router)
 app.include_router(health.router)
+app.include_router(invoice_jp_v1.router)
+app.include_router(audit_v1.router)
+app.include_router(webhooks_v1.router)
 
 
 # Root endpoint
