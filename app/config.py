@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     PREPROCESS_BINARIZE: bool = True
     PREPROCESS_MAX_SKEW_ANGLE: float = 15.0
 
+    # Search
+    SEARCH_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    SEARCH_EMBEDDING_API_KEY: str | None = None
+    SEARCH_DEFAULT_ALPHA: float = 0.7
+    SEARCH_DEFAULT_LIMIT: int = 20
+
     # Async Processing
     ASYNC_WORKERS: int = 4
 
