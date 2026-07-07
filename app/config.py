@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     INVOICE_LLM_PROVIDER: str = ""
     INVOICE_LLM_MODEL: str = ""
 
+    # Visual table detection
+    TABLE_VISUAL_ENABLED: bool = True
+    TABLE_VISUAL_MIN_LINE_LENGTH: int = 40
+    TABLE_VISUAL_KERNEL_SIZE: int = 40
+
     # Quality gate
     QUALITY_GATE_THRESHOLD: float = 0.40
     LANG_DETECT_LOCALE_HINT: str | None = None

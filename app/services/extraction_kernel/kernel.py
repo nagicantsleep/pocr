@@ -15,6 +15,22 @@ from app.services.invoice_confidence import compute_field_confidence
 logger = logging.getLogger(__name__)
 
 
+def _table_region_to_dicts(table_region) -> list[dict]:
+    """Convert a TableRegion to a list of row dicts for ExtractionResult."""
+    rows = []
+    for row_cells in table_region.rows:
+        row_dict = {}
+        for cell in row_cells:
+            col_name = cell.col if hasattr(cell, "col") else f"col_{cell.column}"
+            row_dict[col_name] = {
+                "text": cell.text,
+                "confidence": cell.confidence,
+                "bbox": cell.bbox,
+            }
+        rows.append(row_dict)
+    return rows
+
+
 @dataclass
 class FieldResult:
     """Result of extracting a single field."""
@@ -54,6 +70,7 @@ class ExtractionKernel:
         self,
         schema: SchemaDefinition,
         ocr_results: list[dict],
+        image_bytes: bytes | None = None,
     ) -> ExtractionResult:
         """Run the full extraction pipeline using the schema definition.
 
@@ -81,7 +98,7 @@ class ExtractionKernel:
         # 3. Extract tables
         tables: dict[str, list[dict]] = {}
         for table_def in schema.tables:
-            rows = self._extract_table(table_def, layout, lines, table_candidates)
+            rows = self._extract_table(table_def, layout, lines, table_candidates, image_bytes)
             tables[table_def.id] = rows
 
         # 4. Run field validators
@@ -168,8 +185,42 @@ class ExtractionKernel:
         layout: dict,
         lines: list[dict],
         table_candidates: list[dict],
+        image_bytes: bytes | None = None,
     ) -> list[dict]:
-        """Extract table rows using reconstruct_table + parse_line_items."""
+        """Extract table rows based on the table_def.source setting."""
+        if table_def.source == "table_visual" and image_bytes is not None:
+            return self._extract_table_visual(table_def, image_bytes, lines)
+        # Fallback: text-based extraction
+        return self._extract_table_text(table_def, layout, table_candidates)
+
+    def _extract_table_visual(
+        self,
+        table_def: Any,
+        image_bytes: bytes,
+        lines: list[dict],
+    ) -> list[dict]:
+        """Extract table rows using the visual table detector."""
+        try:
+            from app.services.table_visual.detector import VisualTableDetector
+        except ImportError:
+            logger.debug("VisualTableDetector not available, skipping visual table extraction")
+            return []
+        try:
+            detector = VisualTableDetector()
+            visual_tables = detector.detect(image_bytes, lines, page_no=0)
+            if visual_tables:
+                return _table_region_to_dicts(visual_tables[0])
+        except Exception:
+            logger.debug("Visual table detection failed for %s", table_def.id, exc_info=True)
+        return []
+
+    @staticmethod
+    def _extract_table_text(
+        table_def: Any,
+        layout: dict,
+        table_candidates: list[dict],
+    ) -> list[dict]:
+        """Extract table rows using text-based reconstruct_table + parse_line_items."""
         if not table_candidates:
             return []
         try:
@@ -178,7 +229,7 @@ class ExtractionKernel:
             table_result = reconstruct_table(layout, region, columns)
             return [item.model_dump() for item in parse_line_items(table_result)]
         except Exception:
-            logger.debug("Table extraction failed for %s", table_def.id, exc_info=True)
+            logger.debug("Text table extraction failed for %s", table_def.id, exc_info=True)
             return []
 
     def _run_validators(
