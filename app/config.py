@@ -84,6 +84,20 @@ class Settings(BaseSettings):
     INVOICE_LLM_PROVIDER: str = ""
     INVOICE_LLM_MODEL: str = ""
 
+    # Quality gate
+    QUALITY_GATE_THRESHOLD: float = 0.40
+    LANG_DETECT_LOCALE_HINT: str | None = None
+
+    # PDF Rendering
+    PDF_RENDER_DPI: int = 200
+    PDF_MAX_PAGES: int = 50
+
+    # Image Preprocessing
+    PREPROCESS_DESKEW: bool = True
+    PREPROCESS_DENOISE: bool = True
+    PREPROCESS_BINARIZE: bool = True
+    PREPROCESS_MAX_SKEW_ANGLE: float = 15.0
+
     # Async Processing
     ASYNC_WORKERS: int = 4
 
