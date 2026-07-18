@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "status": "accepted_temporary_development_benchmark",
+  "recorded_on": "2026-07-18",
+  "production_gate_eligible": false,
+  "production_gate_blockers": [
+    "The selected public sources include synthetic and text-only data.",
+    "No source adjudicates every product field required for a Japanese qualified invoice.",
+    "No source proves the selected reference-machine, 1,000/10,000, or search-relevance gates."
+  ],
+  "datasets": [
+    {
+      "id": "Aulvem/japanese-invoice-receipt-extraction-eval",
+      "revision": "72e058a5489a902648431efc35bf477e92fbae8a",
+      "license": "cc-by-nc-4.0",
+      "provenance": "synthetic_text",
+      "expected_documents": 30,
+      "configurations": {
+        "invoice": {
+          "split": "sample",
+          "expected_documents": 20,
+          "artifact": {
+            "path": "invoice_ja.sample.jsonl",
+            "url": "https://huggingface.co/datasets/Aulvem/japanese-invoice-receipt-extraction-eval/resolve/72e058a5489a902648431efc35bf477e92fbae8a/invoice_ja.sample.jsonl",
+            "sha256": "2002bf224df22bc6a4afc45a9cd5f68fd0bba29a5474adf25ba3b24415e5c48a"
+          }
+        },
+        "receipt": {
+          "split": "sample",
+          "expected_documents": 10,
+          "artifact": {
+            "path": "receipt_ja.sample.jsonl",
+            "url": "https://huggingface.co/datasets/Aulvem/japanese-invoice-receipt-extraction-eval/resolve/72e058a5489a902648431efc35bf477e92fbae8a/receipt_ja.sample.jsonl",
+            "sha256": "4ee6e5e3d11a54168a7fcf1c51f06b68930b24d438948f0a9343cc1e16ff4b91"
+          }
+        }
+      },
+      "temporary_gates": [
+        "field_extraction_regression"
+      ],
+      "supported_product_fields": [
+        "issuer_name",
+        "issuer_registration_number",
+        "transaction_date",
+        "tax_summary",
+        "total_amount",
+        "line_items"
+      ],
+      "excluded_gates": [
+        "real_image_ocr",
+        "legal_issuer",
+        "production_release"
+      ]
+    },
+    {
+      "id": "llm-jp/jawildtext",
+      "revision": "627ca7ea7c224ffe1accff8737991fc2240784fa",
+      "license": "apache-2.0",
+      "provenance": "public_real_image",
+      "configuration": "receipt_kie",
+      "split": "train",
+      "expected_documents": 1151,
+      "revision_api_url": "https://huggingface.co/api/datasets/llm-jp/jawildtext/revision/627ca7ea7c224ffe1accff8737991fc2240784fa",
+      "temporary_gates": [
+        "real_image_ocr_date_total_regression"
+      ],
+      "supported_product_fields": [
+        "transaction_date",
+        "total_amount"
+      ],
+      "excluded_gates": [
+        "legal_issuer",
+        "receipt_full_field_f1",
+        "table_region_accuracy",
+        "confidence_calibration",
+        "production_release"
+      ]
+    },
+    {
+      "id": "stockmark/OmniDocBench-JASyn",
+      "revision": "73ecb24624682575bd5ebf138026e711589ae5c6",
+      "license": "cc-by-4.0",
+      "provenance": "synthetic_image_layout",
+      "expected_documents": 518,
+      "annotation": {
+        "path": "OmniDocBench_JASyn.json",
+        "url": "https://huggingface.co/datasets/stockmark/OmniDocBench-JASyn/resolve/73ecb24624682575bd5ebf138026e711589ae5c6/OmniDocBench_JASyn.json",
+        "sha256": "d6ef2b628626d73ae430a548005d872ff83f7477aeeb1441fd3fda8caccd99a8"
+      },
+      "temporary_gates": [
+        "table_layout_reading_order_regression"
+      ],
+      "supported_capabilities": [
+        "layout_regions",
+        "table_recognition",
+        "reading_order"
+      ],
+      "excluded_gates": [
+        "qualified_invoice_field_f1",
+        "real_receipt_ocr",
+        "production_release"
+      ]
+    }
+  ]
+}

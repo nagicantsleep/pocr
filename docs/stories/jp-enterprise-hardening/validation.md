@@ -59,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\validate-jp-failure-recovery-
 powershell -ExecutionPolicy Bypass -File .\scripts\validate-jp-outbox-retry-dlq-live.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\validate-jp-webhook-recovery-live.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\validate-jp-console-live.ps1
-python scripts/prepare-jawildtext-receipt-corpus.py --output data/jawildtext/receipt-kie --count 1000
+python scripts/prepare-jawildtext-receipt-corpus.py --output data/jawildtext/receipt-kie --count 1000 --revision 627ca7ea7c224ffe1accff8737991fc2240784fa
 ```
 
 Before this initiative is marked complete, record tenant-scoped PostgreSQL,
@@ -179,6 +179,20 @@ until legal-issuer adjudication exists.
 The rebuilt local API now uses a tenant-scoped direct PostgreSQL keyword-chunk
 query rather than reconstructing 200 documents before every keyword search.
 This removes that structural ceiling but is not a 10k latency proof.
+
+## Temporary Public Benchmark Boundary
+
+On 2026-07-18, dataset-selection gates for temporary development regression
+were closed with the pinned three-source policy in
+`temporary-benchmark.md` and
+`temporary-benchmark-manifest.json`. Aulvem is limited to synthetic text
+field extraction; JaWildText `receipt_kie` is limited to real-image date/total;
+OmniDocBench-JASyn is limited to synthetic table/layout/reading-order checks.
+Every derived report is `development_only`.
+
+This does not close any production or threshold gate. In particular, do not
+use the three-source set for legal issuer, full receipt/invoice F1, confidence
+calibration, 1,000/10,000 workload, MRR, or release claims.
 
 Still unverified: adjudicated JP invoice fields and table regions; a 50-query
 relevance set over a fully indexed corpus; a 1,000-document ingest; a licensed

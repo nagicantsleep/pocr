@@ -133,6 +133,15 @@ observed evidence.
 
 ---
 
+## Temporary Development Benchmarks
+
+`docs/stories/jp-enterprise-hardening/temporary-benchmark.md` pins three
+public datasets for development-only field, real-image date/total, and
+table/layout regression. Those dataset-selection gates do not satisfy any
+stage threshold in this document and cannot complete this slice.
+
+---
+
 ## Reference Test Set
 
 - `tests/fixtures/invoice-jp/clean/` — 50 hand-labeled real JP qualified invoices.

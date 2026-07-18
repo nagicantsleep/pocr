@@ -56,7 +56,7 @@ def expected_fields(row: dict[str, Any]) -> dict[str, str]:
     return {name: value for name, value in mapped.items() if value is not None}
 
 
-def _rows(offset: int, length: int) -> list[dict[str, Any]]:
+def _rows(offset: int, length: int, revision: str) -> list[dict[str, Any]]:
     query = urllib.parse.urlencode(
         {
             "dataset": DATASET_ID,
@@ -64,6 +64,7 @@ def _rows(offset: int, length: int) -> list[dict[str, Any]]:
             "split": SPLIT,
             "offset": offset,
             "length": length,
+            "revision": revision,
         }
     )
     payload = _request_json(f"https://datasets-server.huggingface.co/rows?{query}")
@@ -73,18 +74,28 @@ def _rows(offset: int, length: int) -> list[dict[str, Any]]:
     return [item["row"] for item in rows if isinstance(item, dict) and isinstance(item.get("row"), dict)]
 
 
-def prepare(output: Path, count: int) -> dict[str, Any]:
+def prepare(output: Path, count: int, revision: str | None = None) -> dict[str, Any]:
     if output.exists():
         if any(output.iterdir()):
             raise RuntimeError(f"{output} already exists and is not empty")
     else:
         output.mkdir(parents=True)
-    metadata = _request_json(f"https://huggingface.co/api/datasets/{DATASET_ID}")
+    requested_revision = revision
+    metadata_path = (
+        f"/revision/{urllib.parse.quote(requested_revision, safe='')}"
+        if requested_revision
+        else ""
+    )
+    metadata = _request_json(f"https://huggingface.co/api/datasets/{DATASET_ID}{metadata_path}")
     revision = metadata.get("sha") if isinstance(metadata, dict) else None
     card_data = metadata.get("cardData") if isinstance(metadata, dict) else None
     license_name = card_data.get("license") if isinstance(card_data, dict) else None
     if not isinstance(revision, str) or not revision:
         raise RuntimeError("Dataset metadata omitted immutable revision sha")
+    if requested_revision and revision != requested_revision:
+        raise RuntimeError(
+            f"Requested revision {requested_revision!r} did not resolve to the same immutable revision"
+        )
     if license_name != "apache-2.0":
         raise RuntimeError(f"Expected Apache-2.0 corpus, found {license_name!r}")
 
@@ -92,7 +103,7 @@ def prepare(output: Path, count: int) -> dict[str, Any]:
     written = 0
     try:
         for offset in range(0, count, ROWS_PAGE_SIZE):
-            for row in _rows(offset, min(ROWS_PAGE_SIZE, count - offset)):
+            for row in _rows(offset, min(ROWS_PAGE_SIZE, count - offset), revision):
                 if row.get("subset") != CONFIG:
                     raise RuntimeError(f"Expected {CONFIG!r} row, found {row.get('subset')!r}")
                 image = row.get("image")
@@ -174,11 +185,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--count", type=int, default=1000)
+    parser.add_argument("--revision", help="Immutable Hugging Face revision SHA to download.")
     args = parser.parse_args(argv)
     if not 1 <= args.count <= 1151:
         parser.error("--count must be between 1 and 1151 for receipt_kie")
     try:
-        manifest = prepare(args.output.resolve(), args.count)
+        manifest = prepare(args.output.resolve(), args.count, args.revision)
     except (OSError, RuntimeError, ValueError, urllib.error.URLError) as exc:
         print(f"corpus preparation failed: {exc}", file=sys.stderr)
         return 2

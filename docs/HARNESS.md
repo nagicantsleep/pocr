@@ -177,6 +177,20 @@ Do not claim proof that was not run. Existing matrix rows explicitly distinguish
 implemented behavior from partial or missing integration, E2E, performance, and
 durability evidence.
 
+## Benchmark Evidence Boundaries
+
+A benchmark corpus closes only the gate that its provenance, annotations, and
+observed report support. Temporary or synthetic corpora must be labeled
+`development_only`; they cannot satisfy a production, commercial-license,
+legal-issuer, full-field F1, calibration, throughput, latency, or relevance
+gate by substitution.
+
+The current JP temporary boundary is recorded in
+`docs/stories/jp-enterprise-hardening/temporary-benchmark.md` and decision
+`0012-temporary-public-benchmark-boundary.md`. Keep the JP slice
+`in_progress` until a commercially permitted, adjudicated corpus and the
+required reference-machine reports close the remaining production gates.
+
 ## Durable Harness Workflow
 
 For a mutating task:
