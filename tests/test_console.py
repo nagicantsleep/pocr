@@ -49,6 +49,7 @@ def test_console_js_loads(client):
     resp = client.get("/console/review.js")
     assert resp.status_code == 200
     assert "javascript" in resp.headers["content-type"]
+    assert "bindTokenInput" in resp.text
 
 
 def test_console_html_has_keyboard_script(client):

@@ -58,8 +58,9 @@ async def test_list_returns_logged_entries(service):
     await service.log(document_id="doc-1", action=AuditAction.CREATE, actor="user-1")
     await service.log(document_id="doc-1", action=AuditAction.APPROVE, actor="user-2")
 
-    entries = await service.list_entries()
+    entries, total = await service.list_entries()
     assert len(entries) == 2
+    assert total == 2
 
 
 @pytest.mark.asyncio
@@ -67,8 +68,9 @@ async def test_list_filter_by_document_id(service):
     await service.log(document_id="doc-1", action=AuditAction.CREATE, actor="user-1")
     await service.log(document_id="doc-2", action=AuditAction.CREATE, actor="user-1")
 
-    entries = await service.list_entries(document_id="doc-1")
+    entries, total = await service.list_entries(document_id="doc-1")
     assert len(entries) == 1
+    assert total == 1
     assert entries[0].document_id == "doc-1"
 
 
@@ -78,8 +80,9 @@ async def test_list_filter_by_action(service):
     await service.log(document_id="doc-1", action=AuditAction.APPROVE, actor="user-1")
     await service.log(document_id="doc-1", action=AuditAction.REJECT, actor="user-1")
 
-    entries = await service.list_entries(action=AuditAction.APPROVE)
+    entries, total = await service.list_entries(action=AuditAction.APPROVE)
     assert len(entries) == 1
+    assert total == 1
     assert entries[0].action == AuditAction.APPROVE
 
 
@@ -88,8 +91,9 @@ async def test_list_filter_by_actor(service):
     await service.log(document_id="doc-1", action=AuditAction.CREATE, actor="alice")
     await service.log(document_id="doc-1", action=AuditAction.CREATE, actor="bob")
 
-    entries = await service.list_entries(actor="alice")
+    entries, total = await service.list_entries(actor="alice")
     assert len(entries) == 1
+    assert total == 1
     assert entries[0].actor == "alice"
 
 
@@ -98,8 +102,9 @@ async def test_list_pagination_limit(service):
     for i in range(5):
         await service.log(document_id=f"doc-{i}", action=AuditAction.CREATE, actor="user")
 
-    entries = await service.list_entries(limit=3)
+    entries, total = await service.list_entries(limit=3)
     assert len(entries) == 3
+    assert total == 5
 
 
 @pytest.mark.asyncio
@@ -107,9 +112,10 @@ async def test_list_pagination_offset(service):
     for i in range(5):
         await service.log(document_id=f"doc-{i}", action=AuditAction.CREATE, actor="user")
 
-    all_entries = await service.list_entries(limit=100)
-    page = await service.list_entries(limit=2, offset=2)
+    all_entries, _ = await service.list_entries(limit=100)
+    page, page_total = await service.list_entries(limit=2, offset=2)
     assert len(page) == 2
+    assert page_total == 5
     assert page[0].id == all_entries[2].id
 
 

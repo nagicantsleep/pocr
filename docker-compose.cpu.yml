@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.cpu
     container_name: paddleocr-api-cpu
     ports:
-      - "8000:8000"
+      - "${POCR_API_PORT:-8000}:8000"
     environment:
       - PADDLE_DEVICE=cpu
       - MODEL_LANG=en
@@ -20,14 +20,35 @@ services:
       - STANDARDIZER_SITE_URL=${STANDARDIZER_SITE_URL:-}
       - STANDARDIZER_APP_NAME=${STANDARDIZER_APP_NAME:-pocr}
       - POSTGRES_DSN=${POSTGRES_DSN:-postgresql://pocr:pocr@postgres:5432/pocr}
+      - REDIS_URL=redis://redis:6379/0
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       - STRUCTURED_STANDARDIZE_TOPIC=${STRUCTURED_STANDARDIZE_TOPIC:-ocr.standardize}
       - STRUCTURED_STANDARDIZE_RETRY_TOPIC=${STRUCTURED_STANDARDIZE_RETRY_TOPIC:-ocr.standardize.retry}
       - STRUCTURED_STANDARDIZE_DLQ_TOPIC=${STRUCTURED_STANDARDIZE_DLQ_TOPIC:-ocr.standardize.dlq}
+      - STRUCTURED_JOB_STALE_SECONDS=${STRUCTURED_JOB_STALE_SECONDS:-300}
       - STANDARDIZER_RATE_LIMIT_KEY=${STANDARDIZER_RATE_LIMIT_KEY:-standardizer:openrouter:minute}
       - STANDARDIZER_RATE_LIMIT=${STANDARDIZER_RATE_LIMIT:-20}
       - STANDARDIZER_RATE_LIMIT_TTL_SECONDS=${STANDARDIZER_RATE_LIMIT_TTL_SECONDS:-60}
       - STANDARDIZER_RETRYABLE_STATUS_CODES=${STANDARDIZER_RETRYABLE_STATUS_CODES:-429,502,503,504}
+      - INVOICE_JP_DURABLE_MODE=true
+      - INVOICE_OUTBOX_TOPIC=${INVOICE_OUTBOX_TOPIC:-invoice.events}
+      - INVOICE_OUTBOX_RETRY_TOPIC=${INVOICE_OUTBOX_RETRY_TOPIC:-invoice.events.retry}
+      - INVOICE_OUTBOX_DLQ_TOPIC=${INVOICE_OUTBOX_DLQ_TOPIC:-invoice.events.dlq}
+      - INVOICE_OUTBOX_MAX_RETRIES=${INVOICE_OUTBOX_MAX_RETRIES:-3}
+      - INVOICE_OUTBOX_RETRY_DELAY_SECONDS=${INVOICE_OUTBOX_RETRY_DELAY_SECONDS:-1.0}
+      - INVOICE_OUTBOX_CONSUMER_GROUP=${INVOICE_OUTBOX_CONSUMER_GROUP:-pocr-invoice-outbox}
+      - INVOICE_OUTBOX_BATCH_SIZE=${INVOICE_OUTBOX_BATCH_SIZE:-100}
+      - INVOICE_OUTBOX_POLL_SECONDS=${INVOICE_OUTBOX_POLL_SECONDS:-1.0}
+      - WEBHOOK_ALLOWED_HOSTS=${WEBHOOK_ALLOWED_HOSTS:-}
+      - OPERATOR_ENVIRONMENT=production
+      - 'OPERATOR_TOKEN_MAP={"tenant-a-token":{"tenant_id":"tenant-a","user_id":"operator-a","roles":["operator","reviewer"]},"tenant-b-token":{"tenant_id":"tenant-b","user_id":"operator-b","roles":["operator","reviewer"]},"admin-token":{"tenant_id":"tenant-a","user_id":"admin","roles":["operator","reviewer","admin"]}}'
+      - STORAGE_BACKEND=s3
+      - STORAGE_S3_BUCKET=${STORAGE_S3_BUCKET:-pocr}
+      - STORAGE_S3_ENDPOINT_URL=http://minio:9000
+      - STORAGE_S3_REGION=${STORAGE_S3_REGION:-us-east-1}
+      - STORAGE_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-pocr-minio}
+      - STORAGE_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-pocr-minio-secret}
+      - STORAGE_S3_FORCE_PATH_STYLE=true
     volumes:
       - ocr_jobs:/tmp/ocr_jobs
     healthcheck:
@@ -36,6 +57,9 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
 
   redis:
     image: redis:7-alpine
@@ -110,9 +134,40 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize --partitions 1 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize.retry --partitions 1 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ocr.standardize.dlq --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic invoice.events --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic invoice.events.retry --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic invoice.events.dlq --partitions 1 --replication-factor 1
     depends_on:
       kafka:
         condition: service_healthy
+    restart: "no"
+
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: paddleocr-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-pocr-minio}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-pocr-minio-secret}
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: paddleocr-minio-init
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-pocr-minio}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-pocr-minio-secret}
+      - STORAGE_S3_BUCKET=${STORAGE_S3_BUCKET:-pocr}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do sleep 1; done
+        mc mb --ignore-existing "local/$$STORAGE_S3_BUCKET"
+    depends_on:
+      minio:
+        condition: service_started
     restart: "no"
 
   mock-openrouter:
@@ -145,6 +200,7 @@ services:
       - STRUCTURED_STANDARDIZE_TOPIC=${STRUCTURED_STANDARDIZE_TOPIC:-ocr.standardize}
       - STRUCTURED_STANDARDIZE_RETRY_TOPIC=${STRUCTURED_STANDARDIZE_RETRY_TOPIC:-ocr.standardize.retry}
       - STRUCTURED_STANDARDIZE_DLQ_TOPIC=${STRUCTURED_STANDARDIZE_DLQ_TOPIC:-ocr.standardize.dlq}
+      - STRUCTURED_JOB_STALE_SECONDS=${STRUCTURED_JOB_STALE_SECONDS:-300}
       - STANDARDIZER_PROVIDER=${STANDARDIZER_PROVIDER:-openrouter}
       - STANDARDIZER_MODEL=${STANDARDIZER_MODEL:-openrouter/owl-alpha}
       - STANDARDIZER_API_KEY=${STANDARDIZER_API_KEY:-mock-openrouter-key}
@@ -155,6 +211,7 @@ services:
       - STANDARDIZER_RATE_LIMIT=${STANDARDIZER_RATE_LIMIT:-20}
       - STANDARDIZER_RATE_LIMIT_TTL_SECONDS=${STANDARDIZER_RATE_LIMIT_TTL_SECONDS:-60}
       - STANDARDIZER_RETRYABLE_STATUS_CODES=${STANDARDIZER_RETRYABLE_STATUS_CODES:-429,502,503,504}
+      - INVOICE_JP_DURABLE_MODE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -170,12 +227,83 @@ services:
       disable: true
     restart: unless-stopped
 
+  invoice-outbox-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: paddleocr-invoice-outbox
+    profiles:
+      - structured
+    command: ["python", "-m", "app.workers.invoice_outbox"]
+    environment:
+      - POSTGRES_DSN=${POSTGRES_DSN:-postgresql://pocr:pocr@postgres:5432/pocr}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - INVOICE_JP_DURABLE_MODE=true
+      - INVOICE_OUTBOX_TOPIC=${INVOICE_OUTBOX_TOPIC:-invoice.events}
+      - INVOICE_OUTBOX_RETRY_TOPIC=${INVOICE_OUTBOX_RETRY_TOPIC:-invoice.events.retry}
+      - INVOICE_OUTBOX_DLQ_TOPIC=${INVOICE_OUTBOX_DLQ_TOPIC:-invoice.events.dlq}
+      - INVOICE_OUTBOX_MAX_RETRIES=${INVOICE_OUTBOX_MAX_RETRIES:-3}
+      - INVOICE_OUTBOX_RETRY_DELAY_SECONDS=${INVOICE_OUTBOX_RETRY_DELAY_SECONDS:-1.0}
+      - INVOICE_OUTBOX_CONSUMER_GROUP=${INVOICE_OUTBOX_CONSUMER_GROUP:-pocr-invoice-outbox}
+      - INVOICE_OUTBOX_BATCH_SIZE=${INVOICE_OUTBOX_BATCH_SIZE:-100}
+      - INVOICE_OUTBOX_POLL_SECONDS=${INVOICE_OUTBOX_POLL_SECONDS:-1.0}
+      - WEBHOOK_ALLOWED_HOSTS=${WEBHOOK_ALLOWED_HOSTS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  invoice-extraction-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: paddleocr-invoice-extraction
+    profiles:
+      - structured
+    command: ["python", "-m", "app.workers.invoice_extraction"]
+    environment:
+      - PADDLE_DEVICE=cpu
+      - MODEL_LANG=en
+      - POSTGRES_DSN=${POSTGRES_DSN:-postgresql://pocr:pocr@postgres:5432/pocr}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - INVOICE_JP_DURABLE_MODE=true
+      - INVOICE_OUTBOX_TOPIC=${INVOICE_OUTBOX_TOPIC:-invoice.events}
+      - INVOICE_OUTBOX_CONSUMER_GROUP=${INVOICE_OUTBOX_CONSUMER_GROUP:-pocr-invoice-outbox}
+      - INVOICE_OUTBOX_POLL_SECONDS=${INVOICE_OUTBOX_POLL_SECONDS:-1.0}
+      - STORAGE_BACKEND=s3
+      - STORAGE_S3_BUCKET=${STORAGE_S3_BUCKET:-pocr}
+      - STORAGE_S3_ENDPOINT_URL=http://minio:9000
+      - STORAGE_S3_REGION=${STORAGE_S3_REGION:-us-east-1}
+      - STORAGE_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-pocr-minio}
+      - STORAGE_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-pocr-minio-secret}
+      - STORAGE_S3_FORCE_PATH_STYLE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 volumes:
   ocr_jobs:
     driver: local
   redis_data:
     driver: local
   postgres_data:
+    driver: local
+  minio_data:
     driver: local
   kafka_data:
     driver: local

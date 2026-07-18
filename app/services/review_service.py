@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from app.services.audit_log import AuditAction, AuditLogService, get_audit_log_service
 from app.services.document_store import DocumentStore, StoredDocument
+
+logger = logging.getLogger(__name__)
 from app.services.webhook_dispatch import (
+    WebhookDeliveryError,
     WebhookDispatcher,
     WebhookEvent,
     get_webhook_dispatcher,
 )
+
+
+@dataclass
+class PatchResult:
+    """Result of a patch_fields operation, including any degradation warnings."""
+    document: StoredDocument
+    warnings: list[str] = field(default_factory=list)
 
 
 class ReviewService:
@@ -29,8 +41,9 @@ class ReviewService:
         document_id: str,
         actor: str,
         reason: str | None = None,
+        tenant_id: str | None = None,
     ) -> StoredDocument:
-        doc = self._store.update_status(document_id, "approved", actor, reason)
+        doc = self._store.update_status(document_id, "approved", actor, reason, tenant_id)
         if doc is None:
             raise ValueError(f"Document not found: {document_id}")
 
@@ -39,6 +52,7 @@ class ReviewService:
             action=AuditAction.APPROVE,
             actor=actor,
             reason=reason,
+            tenant_id=doc.tenant_id,
         )
         await self._webhooks.dispatch(
             WebhookEvent(
@@ -46,6 +60,7 @@ class ReviewService:
                 document_id=document_id,
                 payload={"status": "approved", "actor": actor, "reason": reason},
                 timestamp=datetime.now(timezone.utc),
+                tenant_id=doc.tenant_id,
             )
         )
         return doc
@@ -55,8 +70,9 @@ class ReviewService:
         document_id: str,
         actor: str,
         reason: str | None = None,
+        tenant_id: str | None = None,
     ) -> StoredDocument:
-        doc = self._store.update_status(document_id, "rejected", actor, reason)
+        doc = self._store.update_status(document_id, "rejected", actor, reason, tenant_id)
         if doc is None:
             raise ValueError(f"Document not found: {document_id}")
 
@@ -65,6 +81,7 @@ class ReviewService:
             action=AuditAction.REJECT,
             actor=actor,
             reason=reason,
+            tenant_id=doc.tenant_id,
         )
         await self._webhooks.dispatch(
             WebhookEvent(
@@ -72,6 +89,7 @@ class ReviewService:
                 document_id=document_id,
                 payload={"status": "rejected", "actor": actor, "reason": reason},
                 timestamp=datetime.now(timezone.utc),
+                tenant_id=doc.tenant_id,
             )
         )
         return doc
@@ -81,8 +99,20 @@ class ReviewService:
         document_id: str,
         fields: dict,
         actor: str,
-    ) -> StoredDocument:
-        doc = self._store.patch_fields(document_id, fields, actor)
+        reason: str | None = None,
+        force: bool = False,
+        tenant_id: str | None = None,
+    ) -> PatchResult:
+        # Guard against mutating audited state. Approved/rejected docs require X-Force.
+        existing = self._store.get(document_id, tenant_id)
+        if existing is None:
+            raise ValueError(f"Document not found: {document_id}")
+        if existing.review_status in {"approved", "rejected"} and not force:
+            raise PermissionError(
+                f"Cannot patch fields on {existing.review_status} document without X-Force header"
+            )
+
+        doc = self._store.patch_fields(document_id, fields, actor, tenant_id)
         if doc is None:
             raise ValueError(f"Document not found: {document_id}")
 
@@ -90,17 +120,38 @@ class ReviewService:
             document_id=document_id,
             action=AuditAction.PATCH,
             actor=actor,
+            reason=reason,
             changes=fields,
+            tenant_id=doc.tenant_id,
         )
         await self._webhooks.dispatch(
             WebhookEvent(
                 event_type="document.fields_patched",
                 document_id=document_id,
-                payload={"changes": fields, "actor": actor},
+                payload={"changes": fields, "actor": actor, "forced": force},
                 timestamp=datetime.now(timezone.utc),
+                tenant_id=doc.tenant_id,
             )
         )
-        return doc
+
+        warnings: list[str] = []
+        # Re-index in search so patched fields are reflected in /v1/search
+        try:
+            from app.routers.v1.search import _get_search_service
+
+            search_svc = _get_search_service()
+            await search_svc.remove_document(document_id)
+            await search_svc.index_document(
+                document_id,
+                doc.structured_json,
+                tenant_id=doc.tenant_id,
+            )
+        except Exception:
+            msg = f"Search re-index failed for {document_id}; document patched but may not appear in search results"
+            logger.warning(msg, exc_info=True)
+            warnings.append(msg)
+
+        return PatchResult(document=doc, warnings=warnings)
 
     async def list_documents(
         self,
@@ -108,14 +159,20 @@ class ReviewService:
         document_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        tenant_id: str | None = None,
     ) -> dict:
         documents = self._store.list_documents(
             review_status=review_status,
             document_type=document_type,
             limit=limit,
             offset=offset,
+            tenant_id=tenant_id,
         )
-        total = self._store.count(review_status=review_status)
+        total = self._store.count(
+            review_status=review_status,
+            document_type=document_type,
+            tenant_id=tenant_id,
+        )
         return {
             "documents": documents,
             "total": total,

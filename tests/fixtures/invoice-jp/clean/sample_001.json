@@ -1,0 +1,25 @@
+{
+  "document_type": "qualified_invoice",
+  "fields": {
+    "registration_number": "T1234567890123",
+    "issuer_name": "テスト株式会社",
+    "total_amount": 115500,
+    "transaction_date": "2026-01-15",
+    "line_items": [
+      {
+        "description": "コンサルティング費用",
+        "quantity": 1,
+        "unit_price": 100000,
+        "tax_rate": 0.10,
+        "amount": 110000
+      },
+      {
+        "description": "交通費",
+        "quantity": 1,
+        "unit_price": 5000,
+        "tax_rate": 0.10,
+        "amount": 5500
+      }
+    ]
+  }
+}

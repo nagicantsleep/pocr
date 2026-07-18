@@ -19,6 +19,8 @@
         <div class="header-right">
             <span class="actor-label">Actor:</span>
             <input type="text" id="actorInput" value="operator" class="actor-input" aria-label="Actor name">
+            <span class="actor-label">Token:</span>
+            <input type="password" id="tokenInput" class="actor-input" placeholder="Bearer token" aria-label="Operator bearer token">
         </div>
     </header>
 
@@ -111,6 +113,8 @@
                 <input type="text" id="patchField" placeholder="e.g. total_amount">
                 <label for="patchValue">New value:</label>
                 <input type="text" id="patchValue" placeholder="e.g. 1234.56">
+                <label for="patchReason">Reason (optional):</label>
+                <textarea id="patchReason" rows="2" placeholder="Explain the correction..."></textarea>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closePatchModal()">Cancel</button>

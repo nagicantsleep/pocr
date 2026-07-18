@@ -16,6 +16,7 @@ from app.routers.v1 import audit as audit_v1
 from app.routers.v1 import webhooks as webhooks_v1
 from app.routers.v1 import review as review_v1
 from app.routers.v1 import search as search_v1
+from app.routers.v1 import jobs as jobs_v1
 from app.routers.v1 import console as console_v1
 from app.services.ocr_engine import get_ocr_engine, is_engine_ready
 from app.services.structured_job_store import get_structured_job_repository
@@ -52,6 +53,15 @@ async def lifespan(app: FastAPI):
         if not os.path.exists(job_dir):
             os.makedirs(job_dir, exist_ok=True)
             logger.info(f"Created job directory: {job_dir}")
+
+    # Startup recovery: fail jobs stuck in transient states from a prior process.
+    from app.services.job_store import get_job_store
+    try:
+        recovered = get_job_store().fail_stale_jobs()
+        if recovered:
+            logger.info("Startup recovery: %d stale job(s) marked as failed", recovered)
+    except Exception:
+        logger.exception("Startup job recovery scan failed")
 
     yield
 
@@ -132,6 +142,7 @@ app.include_router(audit_v1.router)
 app.include_router(webhooks_v1.router)
 app.include_router(review_v1.router)
 app.include_router(search_v1.router)
+app.include_router(jobs_v1.router)
 app.include_router(console_v1.router)
 
 

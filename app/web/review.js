@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDocuments();
     bindShortcuts();
     bindSearch();
+    bindTokenInput();
 });
 
 // ===== API Helpers =====
@@ -16,7 +17,12 @@ function getActor() {
 }
 
 async function apiFetch(url, options = {}) {
-    const resp = await fetch(url, options);
+    const token = document.getElementById('tokenInput')?.value?.trim();
+    const headers = { ...(options.headers || {}) };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const resp = await fetch(url, { ...options, headers });
     if (!resp.ok) {
         const text = await resp.text();
         throw new Error(`${resp.status}: ${text}`);
@@ -112,18 +118,20 @@ async function renderDetail(doc) {
 
 function renderFields(doc) {
     const table = document.getElementById('fieldsTable');
-    const fields = doc.extracted_fields || doc.fields || {};
-    const confidences = doc.field_confidences || {};
+    const raw = doc.structured_json || doc.extracted_fields || doc.fields || {};
 
-    const keys = Object.keys(fields);
+    const keys = Object.keys(raw);
     if (keys.length === 0) {
         table.innerHTML = '<div class="empty-state">No extracted fields</div>';
         return;
     }
 
     table.innerHTML = keys.map(key => {
-        const value = fields[key];
-        const conf = confidences[key];
+        const entry = raw[key];
+        // Extract value/confidence from {value, confidence, source_used} wrappers
+        const value = (entry && typeof entry === 'object' && 'value' in entry) ? entry.value : entry;
+        const conf = (entry && typeof entry === 'object' && 'confidence' in entry) ? entry.confidence : null;
+
         let confHtml = '';
         let rowBg = '';
 
@@ -134,15 +142,45 @@ function renderFields(doc) {
             rowBg = conf >= 0.85 ? '#f1f8e9' : conf >= 0.7 ? '#fff8e1' : '#ffebee';
         }
 
-        const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+        // Render arrays/objects as nested tables so line_items etc. are scannable
+        // instead of inline JSON blobs. Schema metadata powers the formatting.
+        let displayValue;
+        if (Array.isArray(value)) {
+            displayValue = renderArrayAsTable(value);
+        } else if (value && typeof value === 'object') {
+            displayValue = renderObjectAsTable(value);
+        } else {
+            displayValue = escapeHtml(String(value ?? ''));
+        }
         return `
             <div class="field-row" style="background:${rowBg}">
                 <span class="field-name">${escapeHtml(key)}</span>
-                <span class="field-value">${escapeHtml(displayValue)}</span>
+                <span class="field-value">${displayValue}</span>
                 ${confHtml}
             </div>
         `;
     }).join('');
+}
+
+function renderArrayAsTable(arr) {
+    if (arr.length === 0) return '<span class="empty-state">(empty list)</span>';
+    const isObj = typeof arr[0] === 'object' && arr[0] !== null;
+    if (!isObj) {
+        return `<ul>${arr.map(v => `<li>${escapeHtml(String(v))}</li>`).join('')}</ul>`;
+    }
+    const cols = Array.from(new Set(arr.flatMap(o => Object.keys(o))));
+    const head = `<tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
+    const body = arr.map(o =>
+        `<tr>${cols.map(c => `<td>${escapeHtml(String(o[c] ?? ''))}</td>`).join('')}</tr>`
+    ).join('');
+    return `<table class="field-nested"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+function renderObjectAsTable(obj) {
+    const rows = Object.entries(obj).map(
+        ([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`
+    ).join('');
+    return `<table class="field-nested"><tbody>${rows}</tbody></table>`;
 }
 
 function showDetailEmpty() {
@@ -183,18 +221,19 @@ async function confirmAction() {
     const docId = doc.document_id || doc.id;
     const reason = document.getElementById('modalReason').value;
     const actor = getActor();
+    const action = pendingAction;
 
     closeModal();
 
     try {
-        await apiFetch(`/v1/documents/${docId}/${pendingAction}`, {
+        await apiFetch(`/v1/documents/${docId}/${action}`, {
             method: 'POST',
             headers: {
                 'X-Actor': actor,
                 'X-Reason': reason
             }
         });
-        showToast(`Document ${pendingAction === 'approve' ? 'approved' : 'rejected'}`, 'success');
+        showToast(`Document ${action === 'approve' ? 'approved' : 'rejected'}`, 'success');
         loadDocuments();
     } catch (err) {
         showToast(`Failed: ${err.message}`, 'error');
@@ -207,6 +246,7 @@ function openPatchModal() {
     if (!doc) return;
     document.getElementById('patchField').value = '';
     document.getElementById('patchValue').value = '';
+    document.getElementById('patchReason').value = '';
     document.getElementById('patchOverlay').style.display = 'flex';
     document.getElementById('patchField').focus();
 }
@@ -218,6 +258,7 @@ async function submitPatch() {
     const docId = doc.document_id || doc.id;
     const field = document.getElementById('patchField').value.trim();
     const value = document.getElementById('patchValue').value;
+    const reason = document.getElementById('patchReason').value;
 
     if (!field) {
         showToast('Field name is required', 'error');
@@ -231,7 +272,8 @@ async function submitPatch() {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Actor': getActor()
+                'X-Actor': getActor(),
+                'X-Reason': reason
             },
             body: JSON.stringify({ [field]: value })
         });
@@ -264,6 +306,17 @@ function bindSearch() {
     });
 }
 
+function bindTokenInput() {
+    const input = document.getElementById('tokenInput');
+    input.addEventListener('change', loadDocuments);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            loadDocuments();
+        }
+    });
+}
+
 async function runSearch(query) {
     if (!query.trim()) {
         loadDocuments();
@@ -272,7 +325,26 @@ async function runSearch(query) {
     try {
         const resp = await apiFetch(`/v1/search?q=${encodeURIComponent(query)}&mode=hybrid`);
         const data = await resp.json();
-        documents = data.results || data.documents || [];
+        const results = data.results || data.documents || [];
+        // Dedupe by document_id and fetch document metadata
+        const seen = new Set();
+        const uniqueDocIds = [];
+        for (const r of results) {
+            const did = r.document_id || r.id;
+            if (did && !seen.has(did)) {
+                seen.add(did);
+                uniqueDocIds.push(did);
+            }
+        }
+        const docs = await Promise.all(uniqueDocIds.map(async (did) => {
+            try {
+                const docResp = await apiFetch(`/v1/documents/${did}`);
+                return await docResp.json();
+            } catch (_) {
+                return { document_id: did, issuer_name: 'Unknown', confidence: 0, review_status: 'unknown' };
+            }
+        }));
+        documents = docs;
         currentIndex = -1;
         renderDocumentList();
         showDetailEmpty();
@@ -284,20 +356,18 @@ async function runSearch(query) {
 // ===== Keyboard Shortcuts =====
 function bindShortcuts() {
     document.addEventListener('keydown', (e) => {
-        // Don't capture if typing in an input
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-        // Don't capture if modal is open
+        // Handle modal keys first (even when focus is in textarea)
         const modalOpen =
             document.getElementById('modalOverlay').style.display === 'flex' ||
             document.getElementById('patchOverlay').style.display === 'flex';
         if (modalOpen) {
             if (e.key === 'Escape') {
+                e.preventDefault();
                 closeModal();
                 closePatchModal();
             }
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
                 if (document.getElementById('modalOverlay').style.display === 'flex') {
                     confirmAction();
                 } else {
@@ -306,6 +376,10 @@ function bindShortcuts() {
             }
             return;
         }
+
+        // Don't capture if typing in an input
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
         switch (e.key.toLowerCase()) {
             case 'a':

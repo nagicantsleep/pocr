@@ -3,14 +3,18 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.services.webhook_dispatch import get_webhook_dispatcher
+from app.auth import AuthenticatedPrincipal, require_operator
+from app.services.webhook_dispatch import WebhookURLError, get_webhook_dispatcher
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/webhooks", tags=["Webhooks"])
+router = APIRouter(
+    prefix="/v1/webhooks",
+    tags=["Webhooks"],
+)
 
 
 class WebhookSubscribeRequest(BaseModel):
@@ -31,10 +35,21 @@ class WebhookListResponse(BaseModel):
 
 
 @router.post("", response_model=WebhookSubscriptionResponse, status_code=201)
-async def subscribe(req: WebhookSubscribeRequest):
+async def subscribe(
+    req: WebhookSubscribeRequest,
+    principal: AuthenticatedPrincipal = Depends(require_operator),
+):
     """Register a webhook subscription."""
     dispatcher = get_webhook_dispatcher()
-    sub = dispatcher.subscribe(url=req.url, events=req.events, secret=req.secret)
+    try:
+        sub = dispatcher.subscribe(
+            url=req.url,
+            events=req.events,
+            secret=req.secret,
+            tenant_id=principal.tenant_id,
+        )
+    except WebhookURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return WebhookSubscriptionResponse(
         id=sub.id,
         url=sub.url,
@@ -44,10 +59,12 @@ async def subscribe(req: WebhookSubscribeRequest):
 
 
 @router.get("", response_model=WebhookListResponse)
-async def list_subscriptions():
+async def list_subscriptions(
+    principal: AuthenticatedPrincipal = Depends(require_operator),
+):
     """List all webhook subscriptions."""
     dispatcher = get_webhook_dispatcher()
-    subs = dispatcher.list_subscriptions()
+    subs = dispatcher.list_subscriptions(tenant_id=principal.tenant_id)
     return WebhookListResponse(
         subscriptions=[
             WebhookSubscriptionResponse(
@@ -62,10 +79,13 @@ async def list_subscriptions():
 
 
 @router.delete("/{subscription_id}", status_code=200)
-async def unsubscribe(subscription_id: str):
+async def unsubscribe(
+    subscription_id: str,
+    principal: AuthenticatedPrincipal = Depends(require_operator),
+):
     """Remove a webhook subscription."""
     dispatcher = get_webhook_dispatcher()
-    removed = dispatcher.unsubscribe(subscription_id)
+    removed = dispatcher.unsubscribe(subscription_id, tenant_id=principal.tenant_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Subscription not found")
     return {"status": "removed", "id": subscription_id}

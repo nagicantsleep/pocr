@@ -106,7 +106,9 @@ def process_standardization_message(message: dict[str, Any]) -> None:
         )
         return
 
-    repo.mark_running(job_id)
+    if not repo.mark_running(job_id):
+        logger.info("Ignoring duplicate or terminal job %s", job_id)
+        return
     try:
         raw_ocr_results = _build_ocr_results(job["raw_ocr_json"])
         structured = get_standardizer().standardize(raw_ocr_results)
@@ -114,28 +116,40 @@ def process_standardization_message(message: dict[str, Any]) -> None:
     except StandardizerError as exc:
         status_code = _status_code_from_error(exc)
         if status_code in _retryable_status_codes():
-            publisher.publish(
-                _retry_message(message, str(exc)),
-                topic=settings.STRUCTURED_STANDARDIZE_RETRY_TOPIC,
-            )
+            if repo.mark_queued_for_retry(job_id, str(exc)):
+                publisher.publish(
+                    _retry_message(message, str(exc)),
+                    topic=settings.STRUCTURED_STANDARDIZE_RETRY_TOPIC,
+                )
             return
-        repo.mark_failed(job_id, str(exc))
-        publisher.publish(
-            {**message, "error": str(exc)},
-            topic=settings.STRUCTURED_STANDARDIZE_DLQ_TOPIC,
-        )
+        if repo.mark_failed(job_id, str(exc)):
+            publisher.publish(
+                {**message, "error": str(exc)},
+                topic=settings.STRUCTURED_STANDARDIZE_DLQ_TOPIC,
+            )
     except Exception as exc:
-        repo.mark_failed(job_id, str(exc))
-        publisher.publish(
-            {**message, "error": str(exc)},
-            topic=settings.STRUCTURED_STANDARDIZE_DLQ_TOPIC,
-        )
+        if repo.mark_failed(job_id, str(exc)):
+            publisher.publish(
+                {**message, "error": str(exc)},
+                topic=settings.STRUCTURED_STANDARDIZE_DLQ_TOPIC,
+            )
+
+
+def recover_stale_running_jobs() -> int:
+    settings = get_settings()
+    recovered = get_structured_job_repository().fail_stale_running_jobs(
+        settings.STRUCTURED_JOB_STALE_SECONDS
+    )
+    if recovered:
+        logger.warning("Worker restart recovery marked %d stale job(s) as failed", recovered)
+    return recovered
 
 
 def run_worker() -> None:
     from confluent_kafka import Consumer
 
     settings = get_settings()
+    recover_stale_running_jobs()
     consumer = Consumer(
         {
             "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,

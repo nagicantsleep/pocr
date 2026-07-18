@@ -85,6 +85,14 @@ class TestFindTotalAmount:
         candidates = find_total_amount(lines)
         assert len(candidates) >= 1
 
+    def test_ocr_split_total_label_uses_nearby_currency_amount(self):
+        lines = [
+            _make_line("￥2,320", x=2300, y=2903),
+            _make_line("合言十", x=106, y=2939),
+        ]
+        candidates = find_total_amount(lines)
+        assert candidates[0]["value"] == 2320
+
     def test_no_match(self):
         lines = [_make_line("これはテストです")]
         assert find_total_amount(lines) == []

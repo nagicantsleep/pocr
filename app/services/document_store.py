@@ -18,6 +18,7 @@ class StoredDocument:
     updated_at: datetime
     reviewed_by: str | None = None
     review_reason: str | None = None
+    tenant_id: str = "development"
 
 
 class DocumentStore:
@@ -29,8 +30,19 @@ class DocumentStore:
     def store(self, document: StoredDocument) -> None:
         self._documents[document.id] = document
 
-    def get(self, document_id: str) -> StoredDocument | None:
-        return self._documents.get(document_id)
+    def delete(self, document_id: str, tenant_id: str | None = None) -> bool:
+        """Remove a document from the store. Returns True if it existed."""
+        document = self._documents.get(document_id)
+        if document is None or (tenant_id is not None and document.tenant_id != tenant_id):
+            return False
+        del self._documents[document_id]
+        return True
+
+    def get(self, document_id: str, tenant_id: str | None = None) -> StoredDocument | None:
+        document = self._documents.get(document_id)
+        if document is None or (tenant_id is not None and document.tenant_id != tenant_id):
+            return None
+        return document
 
     def list_documents(
         self,
@@ -38,20 +50,31 @@ class DocumentStore:
         document_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        tenant_id: str | None = None,
     ) -> list[StoredDocument]:
         filtered = list(self._documents.values())
+        if tenant_id is not None:
+            filtered = [document for document in filtered if document.tenant_id == tenant_id]
         if review_status is not None:
             filtered = [d for d in filtered if d.review_status == review_status]
         if document_type is not None:
             filtered = [d for d in filtered if d.document_type == document_type]
         return filtered[offset : offset + limit]
 
-    def count(self, review_status: str | None = None) -> int:
+    def count(
+        self,
+        review_status: str | None = None,
+        document_type: str | None = None,
+        tenant_id: str | None = None,
+    ) -> int:
+        filtered = self._documents.values()
+        if tenant_id is not None:
+            filtered = [document for document in filtered if document.tenant_id == tenant_id]
         if review_status is not None:
-            return sum(
-                1 for d in self._documents.values() if d.review_status == review_status
-            )
-        return len(self._documents)
+            filtered = [d for d in filtered if d.review_status == review_status]
+        if document_type is not None:
+            filtered = [d for d in filtered if d.document_type == document_type]
+        return len(filtered)
 
     def update_status(
         self,
@@ -59,8 +82,9 @@ class DocumentStore:
         status: str,
         actor: str,
         reason: str | None = None,
+        tenant_id: str | None = None,
     ) -> StoredDocument | None:
-        doc = self._documents.get(document_id)
+        doc = self.get(document_id, tenant_id)
         if doc is None:
             return None
         doc.review_status = status
@@ -74,8 +98,9 @@ class DocumentStore:
         document_id: str,
         fields: dict,
         actor: str,
+        tenant_id: str | None = None,
     ) -> StoredDocument | None:
-        doc = self._documents.get(document_id)
+        doc = self.get(document_id, tenant_id)
         if doc is None:
             return None
         doc.structured_json.update(fields)

@@ -3,7 +3,34 @@
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class OperatorTokenIdentity(BaseModel):
+    """Identity claims bound to one configured operator token."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    tenant_id: str
+    user_id: str
+    roles: tuple[str, ...]
+
+    @field_validator("tenant_id", "user_id")
+    @classmethod
+    def require_identifier(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("roles")
+    @classmethod
+    def require_roles(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        roles = tuple(role.strip() for role in value if role.strip())
+        if not roles:
+            raise ValueError("must contain at least one role")
+        return roles
 
 
 class Settings(BaseSettings):
@@ -40,7 +67,7 @@ class Settings(BaseSettings):
     # Server / Deployment
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    WORKERS: int = 4
+    WORKERS: int = 1  # In-memory stores require single-process; override only with durable backends
     LOG_LEVEL: str = "INFO"
     JOB_BACKEND: str = "filesystem"
     JOB_TTL_HOURS: int = 24
@@ -48,6 +75,26 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     RATE_LIMIT: str = "100/minute"
     API_KEY: Optional[str] = None
+
+    # Operator auth. OPERATOR_TOKEN_MAP is JSON keyed by bearer token:
+    # {"token": {"tenant_id": "tenant-a", "user_id": "user-1", "roles": ["operator"]}}
+    OPERATOR_ENVIRONMENT: str = "development"
+    OPERATOR_TOKEN_MAP: dict[str, OperatorTokenIdentity] = Field(default_factory=dict)
+
+    # Temporary migration path: populate OPERATOR_TOKEN_MAP first, then remove this
+    # single-token fallback. Production requires OPERATOR_ALLOW_LEGACY_TOKEN=true.
+    OPERATOR_BEARER_TOKEN: Optional[str] = None
+    OPERATOR_ALLOW_LEGACY_TOKEN: bool = False
+    OPERATOR_LEGACY_PRINCIPAL: OperatorTokenIdentity = Field(
+        default_factory=lambda: OperatorTokenIdentity(
+            tenant_id="legacy",
+            user_id="legacy-operator",
+            roles=("operator",),
+        )
+    )
+
+    # Webhook allowlist (comma-separated hostnames). When empty, all HTTPS hosts allowed.
+    WEBHOOK_ALLOWED_HOSTS: str = ""
 
     # Structured standardization
     STANDARDIZER_PROVIDER: str = "heuristic"
@@ -61,14 +108,30 @@ class Settings(BaseSettings):
     STRUCTURED_STANDARDIZE_TOPIC: str = "ocr.standardize"
     STRUCTURED_STANDARDIZE_RETRY_TOPIC: str = "ocr.standardize.retry"
     STRUCTURED_STANDARDIZE_DLQ_TOPIC: str = "ocr.standardize.dlq"
+    STRUCTURED_JOB_STALE_SECONDS: int = 300
     STANDARDIZER_RATE_LIMIT_KEY: str = "standardizer:openrouter:minute"
     STANDARDIZER_RATE_LIMIT: int = 20
     STANDARDIZER_RATE_LIMIT_TTL_SECONDS: int = 60
     STANDARDIZER_RETRYABLE_STATUS_CODES: str = "429,502,503,504"
+    INVOICE_JP_DURABLE_MODE: bool = False
+    INVOICE_OUTBOX_TOPIC: str = "invoice.events"
+    INVOICE_OUTBOX_RETRY_TOPIC: str = "invoice.events.retry"
+    INVOICE_OUTBOX_DLQ_TOPIC: str = "invoice.events.dlq"
+    INVOICE_OUTBOX_MAX_RETRIES: int = 3
+    INVOICE_OUTBOX_RETRY_DELAY_SECONDS: float = 1.0
+    INVOICE_OUTBOX_CONSUMER_GROUP: str = "pocr-invoice-outbox"
+    INVOICE_OUTBOX_BATCH_SIZE: int = 100
+    INVOICE_OUTBOX_POLL_SECONDS: float = 1.0
 
     # Storage
     STORAGE_BACKEND: str = "local"
     STORAGE_PATH: str = "./data/storage"
+    STORAGE_S3_BUCKET: str | None = None
+    STORAGE_S3_ENDPOINT_URL: str | None = None
+    STORAGE_S3_REGION: str = "us-east-1"
+    STORAGE_S3_ACCESS_KEY_ID: str | None = None
+    STORAGE_S3_SECRET_ACCESS_KEY: str | None = None
+    STORAGE_S3_FORCE_PATH_STYLE: bool = False
 
     # Invoice extraction
     INVOICE_ENABLE_EXTRACTION: bool = True
@@ -131,6 +194,18 @@ class Settings(BaseSettings):
             if len(parts) == 2 and parts[0] == "gpu":
                 return int(parts[1])
         return None
+
+    @property
+    def is_production(self) -> bool:
+        """Whether operator authentication must fail closed."""
+        return self.OPERATOR_ENVIRONMENT.strip().lower() in {"prod", "production"}
+
+    @property
+    def legacy_operator_token_enabled(self) -> bool:
+        """Allow the old single-token gate only during an explicit migration."""
+        return bool(self.OPERATOR_BEARER_TOKEN) and (
+            self.OPERATOR_ALLOW_LEGACY_TOKEN or not self.is_production
+        )
 
 
 @lru_cache

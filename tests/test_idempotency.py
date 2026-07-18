@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -126,3 +127,97 @@ class TestDelete:
             result = await service.delete("key-1")
 
         assert result is False
+
+
+class TestClaimOrGetChecked:
+    @pytest.mark.asyncio
+    async def test_new_key_claims_successfully(self, service, mock_redis):
+        mock_redis.eval.return_value = [
+            1,
+            json.dumps(
+                {
+                    "resource_id": "job-abc",
+                    "fingerprint": "fp-abc",
+                    "state": "pending",
+                }
+            ),
+        ]
+        service._redis = mock_redis
+
+        result = await service.claim_or_get_checked("key-1", "job-abc", "fp-abc")
+
+        assert result == (True, "job-abc", False)
+        mock_redis.eval.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_same_fingerprint_no_conflict(self, service, mock_redis):
+        mock_redis.eval.return_value = [
+            0,
+            json.dumps(
+                {
+                    "resource_id": "job-existing",
+                    "fingerprint": "fp-abc",
+                    "state": "pending",
+                }
+            ),
+        ]
+        service._redis = mock_redis
+
+        result = await service.claim_or_get_checked("key-1", "job-new", "fp-abc")
+
+        assert result == (False, "job-existing", False)
+
+    @pytest.mark.asyncio
+    async def test_different_fingerprint_returns_conflict(self, service, mock_redis):
+        mock_redis.eval.return_value = [
+            0,
+            json.dumps(
+                {
+                    "resource_id": "job-existing",
+                    "fingerprint": "fp-abc",
+                    "state": "pending",
+                }
+            ),
+        ]
+        service._redis = mock_redis
+
+        result = await service.claim_or_get_checked("key-1", "job-new", "fp-DIFFERENT")
+
+        assert result == (False, "job-existing", True)
+
+    @pytest.mark.asyncio
+    async def test_legacy_value_without_separator(self, service, mock_redis):
+        """If stored value is plain job_id (no #), treat as no fingerprint."""
+        mock_redis.eval.return_value = [0, "job-existing"]
+        service._redis = mock_redis
+
+        result = await service.claim_or_get_checked("key-1", "job-new", "fp-abc")
+
+        assert result == (False, "job-existing", False)
+
+    @pytest.mark.asyncio
+    async def test_redis_unavailable_fail_closed(self, service):
+        service._fail_closed = True
+        service._redis = None
+
+        with patch.object(service, "_get_redis", return_value=None):
+            result = await service.claim_or_get_checked("key-1", "job-abc", "fp-abc")
+
+        assert result is None
+
+
+class TestOperationLease:
+    @pytest.mark.asyncio
+    async def test_renew_pending_operation_extends_only_owned_lease(self, service, mock_redis):
+        mock_redis.eval.return_value = 1
+        service._redis = mock_redis
+
+        result = await service.renew_pending_operation(
+            "key-1",
+            "job-abc",
+            "fp-abc",
+            ttl_seconds=300,
+        )
+
+        assert result is True
+        mock_redis.eval.assert_awaited_once()

@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Global engines by language (lazy initialized)
 _ocr_engines: Dict[str, Any] = {}
+_PADDLE_LANGUAGE_ALIASES = {"ja": "japan", "jp": "japan"}
 
 # Separate cache for CPU fallback engines (keyed by normalized lang)
 _cpu_fallback_engines: Dict[str, Any] = {}
@@ -32,7 +33,8 @@ def get_ocr_engine(lang: str = "en") -> Any:
     settings = get_settings()
     engine_lang = (lang or settings.MODEL_LANG or "en").strip().lower()
     if engine_lang == "auto":
-        engine_lang = settings.MODEL_LANG
+        engine_lang = (settings.MODEL_LANG or "en").strip().lower()
+    engine_lang = _PADDLE_LANGUAGE_ALIASES.get(engine_lang, engine_lang)
 
     if engine_lang not in _ocr_engines:
         logger.info(f"Initializing PaddleOCR with device={settings.PADDLE_DEVICE}, lang={engine_lang}")
@@ -103,7 +105,8 @@ def run_ocr(
                 # Normalize lang the same way get_ocr_engine does (avoids invalid "auto")
                 fallback_lang = (lang or settings.MODEL_LANG or "en").strip().lower()
                 if fallback_lang == "auto":
-                    fallback_lang = settings.MODEL_LANG
+                    fallback_lang = (settings.MODEL_LANG or "en").strip().lower()
+                fallback_lang = _PADDLE_LANGUAGE_ALIASES.get(fallback_lang, fallback_lang)
                 # Reuse cached CPU engine per language, or create and cache it
                 if fallback_lang not in _cpu_fallback_engines:
                     from paddleocr import PaddleOCR

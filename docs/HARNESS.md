@@ -1,7 +1,7 @@
 # Harness
 
-The project goal is to provide a reusable operating harness that lets humans and
-agents turn a future product spec into safe, validated work.
+The project has an active PaddleOCR/FastAPI implementation. Its Harness lets
+humans and agents turn current product changes into safe, validated work.
 
 The app is what users touch. The harness is what agents touch.
 
@@ -54,31 +54,27 @@ Every task has two possible outputs:
 2. Harness delta: docs, templates, validation expectations, backlog items, or
    decision records that make the next task easier.
 
-## Harness v0 Scope
+## Harness Scope
 
-Harness v0 includes:
+The current Harness includes:
 
 - Agent entrypoint.
-- Empty product documentation structure.
 - Feature intake and risk lanes.
-- Story templates.
-- Decision log template.
-- Validation report template.
-- Test matrix placeholder.
-- Harness growth backlog.
+- Story packets, decisions, validation reports, and a test matrix.
+- A repository-local durable CLI and SQLite operational record for intakes,
+  traces, stories, decisions, backlog, and audits.
+- Existing application, test, Docker, and product-contract surfaces that the
+  Harness coordinates but does not replace.
 
-Harness v0 deliberately excludes:
+The Harness deliberately does not:
 
-- A project-specific `SPEC.md`.
-- Pre-sliced product domains.
-- A locked application stack.
-- App source scaffolding.
-- Package scripts.
-- Test runner config.
-- CI workflows.
-- Database migrations or infrastructure.
-
-Those should arrive only when a selected story needs them.
+- Require a project-specific `SPEC.md`.
+- Replace the accepted product contracts, story packets, decisions, or
+  executable tests with database records.
+- Prescribe a new application stack or overwrite the existing FastAPI,
+  PaddleOCR, PostgreSQL, Kafka, Redis, or provider integration choices.
+- Create unrelated application surfaces, tests, CI, or infrastructure without
+  a selected story or maintenance request.
 
 ## Source Hierarchy
 
@@ -99,15 +95,16 @@ docs/decisions/*
   why the contract changed
 ```
 
-Before implementation, product docs describe intent. After implementation,
-product docs plus executable tests become the living contract.
+Product docs plus executable tests are the living product contract. The durable
+Harness database records task operations and may be refreshed from markdown with
+`harness-cli import brownfield`; it is not a competing source of product truth.
 
 ## Spec Lifecycle
 
-Harness v0 starts without a tracked project spec. When the human provides a
-specification, treat it as input material, not as a permanent operating manual.
-Use it to populate product docs, story packets, architecture decisions, and
-validation expectations during the first buildout.
+The Harness does not require a tracked monolithic project spec. When the human
+provides a new specification, treat it as input material, not as a permanent
+operating manual. Use it to populate or revise product docs, story packets,
+architecture decisions, and validation expectations.
 
 After the specification has been decomposed, do not keep extending it as the
 living product plan. Ongoing work should update the smaller product docs,
@@ -151,26 +148,47 @@ When an agent is confused, repeats manual reasoning, needs a new validation
 command, discovers a missing rule, or sees a recurring failure pattern, it must
 either improve the harness directly or add a proposal to `HARNESS_BACKLOG.md`.
 
-## Future Validation Ladder
+## Validation Ladder
 
-No validation scripts exist yet. When implementation begins, the expected ladder
-is:
+The repository already has validation entrypoints. Use the smallest relevant
+proof from `README.md`, the selected story packet, and `docs/TEST_MATRIX.md`;
+for example:
 
 ```text
-validate:quick
-  format, lint, typecheck, unit tests, architecture check
+quick
+  python -m compileall app tests scripts
+  focused python -m pytest tests/...
 
-test:integration
-  backend, database, provider, or service checks as the stack requires
+integration
+  route, provider, worker, database, queue, or container checks required by
+  the selected story
 
-test:e2e
-  user-visible end-to-end flows
+e2e
+  public workflow proof when the selected story requires it
 
-test:platform
-  shell, mobile, desktop, or deployment smoke checks as the stack requires
+platform
+  Docker, CPU/GPU, deployment, or other runtime smoke checks
 
-test:release
-  full suite, log checks, and performance smoke
+release
+  full relevant suite, log checks, and performance proof
 ```
 
-Agents must not claim these commands pass until they exist and have been run.
+Do not claim proof that was not run. Existing matrix rows explicitly distinguish
+implemented behavior from partial or missing integration, E2E, performance, and
+durability evidence.
+
+## Durable Harness Workflow
+
+For a mutating task:
+
+1. Run `scripts/bootstrap-harness.sh` on macOS/Linux or
+   `.\scripts\bootstrap-harness.ps1` on Windows.
+2. Classify and record the request with `harness-cli intake`.
+3. Query the active matrix and retrieve lane-specific context.
+4. Update product artifacts and run the relevant validation.
+5. Record a trace for normal or high-risk work, including files changed,
+   validation evidence, outcome, and proof limits.
+6. Run `harness-cli audit`.
+
+When absorbing accepted markdown state that predates the durable layer, run
+`harness-cli import brownfield` first, then record the synchronization trace.

@@ -81,6 +81,8 @@ class VisualTableDetector:
             if ocr_lines:
                 for table in rule_tables:
                     self._assign_text_to_cells_from_ocr(table.rows, ocr_lines)
+                    table.rows = self._detect_rowspan_colspan(table.rows)
+                    table.header_row = table.rows[0] if table.rows else None
             return rule_tables
 
         # Fallback to text-based detection
@@ -148,9 +150,6 @@ class VisualTableDetector:
             # Convert cell grid to CellRegion objects
             cell_rows = self._cells_to_regions(cells)
 
-            # Detect rowspan/colspan
-            cell_rows = self._detect_rowspan_colspan(cell_rows)
-
             # Compute confidence based on grid regularity
             confidence = self._compute_grid_confidence(cells)
 
@@ -186,26 +185,15 @@ class VisualTableDetector:
             # Group OCR lines into rows by y-coordinate
             row_groups = self._group_lines_into_rows(ocr_lines, region)
 
+            # Global column clustering across all rows
+            all_region_lines = [line for row in row_groups for line in row]
+            global_col_centers = self._compute_global_columns(all_region_lines, x, w)
+
             cell_rows: list[list[CellRegion]] = []
             for row_idx, row_lines in enumerate(row_groups):
-                row_cells: list[CellRegion] = []
-                for col_idx, line in enumerate(row_lines):
-                    line_bbox = line.get("bbox", {})
-                    line_tl = line_bbox.get("top_left", [0, 0])
-                    line_br = line_bbox.get("bottom_right", [0, 0])
-                    cell = CellRegion(
-                        row=row_idx,
-                        col=col_idx,
-                        bbox={
-                            "x": line_tl[0],
-                            "y": line_tl[1],
-                            "w": line_br[0] - line_tl[0],
-                            "h": line_br[1] - line_tl[1],
-                        },
-                        text=line.get("text", ""),
-                        confidence=line.get("confidence", 0.9),
-                    )
-                    row_cells.append(cell)
+                row_cells = self._assign_to_global_columns(row_lines, global_col_centers)
+                for cell in row_cells:
+                    cell.row = row_idx
                 if row_cells:
                     cell_rows.append(row_cells)
 
@@ -223,6 +211,105 @@ class VisualTableDetector:
                 )
 
         return tables
+
+    def _bin_columns_by_x(
+        self, row_lines: list[dict], region_x: int, region_width: int
+    ) -> list[CellRegion]:
+        """Assign columns to lines based on x-coordinate overlap across rows.
+
+        Lines with similar x_min values are placed in the same column.
+        """
+        if not row_lines:
+            return []
+
+        tolerance = max(10, region_width * 0.15)
+
+        sorted_lines = sorted(row_lines, key=lambda l: l["bbox"]["top_left"][0])
+
+        bins: list[list[dict]] = []
+        bin_mins: list[int] = []
+        for line in sorted_lines:
+            x_min = line["bbox"]["top_left"][0]
+            placed = False
+            for i, center in enumerate(bin_mins):
+                if abs(x_min - center) <= tolerance:
+                    bins[i].append(line)
+                    bin_mins[i] = min(center, x_min)
+                    placed = True
+                    break
+            if not placed:
+                bins.append([line])
+                bin_mins.append(x_min)
+
+        cells: list[CellRegion] = []
+        for col_idx, bin_lines in enumerate(bins):
+            for line in bin_lines:
+                line_bbox = line.get("bbox", {})
+                line_tl = line_bbox.get("top_left", [0, 0])
+                line_br = line_bbox.get("bottom_right", [0, 0])
+                cells.append(
+                    CellRegion(
+                        row=0,
+                        col=col_idx,
+                        bbox={
+                            "x": line_tl[0],
+                            "y": line_tl[1],
+                            "w": line_br[0] - line_tl[0],
+                            "h": line_br[1] - line_tl[1],
+                        },
+                        text=line.get("text", ""),
+                        confidence=line.get("confidence", 0.9),
+                    )
+                )
+
+        return cells
+
+    def _compute_global_columns(
+        self, all_lines: list[dict], region_x: int, region_width: int
+    ) -> list[int]:
+        """Compute global column x-centers from all lines in a region."""
+        if not all_lines:
+            return []
+        tolerance = max(15, region_width * 0.08)
+        x_positions = sorted(
+            [(l["bbox"]["top_left"][0] + l["bbox"]["bottom_right"][0]) / 2 for l in all_lines]
+        )
+        clusters: list[list[float]] = []
+        for x_pos in x_positions:
+            if clusters and abs(x_pos - clusters[-1][-1]) <= tolerance:
+                clusters[-1].append(x_pos)
+            else:
+                clusters.append([x_pos])
+        return [int(sum(c) / len(c)) for c in clusters]
+
+    def _assign_to_global_columns(
+        self, row_lines: list[dict], global_centers: list[int]
+    ) -> list[CellRegion]:
+        """Assign each line to its nearest global column."""
+        if not global_centers:
+            return []
+        cells: list[CellRegion] = []
+        for line in row_lines:
+            line_bbox = line.get("bbox", {})
+            line_tl = line_bbox.get("top_left", [0, 0])
+            line_br = line_bbox.get("bottom_right", [0, 0])
+            cx = (line_tl[0] + line_br[0]) / 2
+            best_col = min(range(len(global_centers)), key=lambda i: abs(cx - global_centers[i]))
+            cells.append(
+                CellRegion(
+                    row=0,
+                    col=best_col,
+                    bbox={
+                        "x": line_tl[0],
+                        "y": line_tl[1],
+                        "w": line_br[0] - line_tl[0],
+                        "h": line_br[1] - line_tl[1],
+                    },
+                    text=line.get("text", ""),
+                    confidence=line.get("confidence", 0.9),
+                )
+            )
+        return cells
 
     def _group_lines_into_rows(
         self, ocr_lines: list[dict], region: dict
@@ -418,45 +505,83 @@ class VisualTableDetector:
     def _detect_rowspan_colspan(
         self, cells: list[list[CellRegion]]
     ) -> list[list[CellRegion]]:
-        """Detect merged cells by checking for empty adjacent cells."""
+        """Detect merged cells by checking for empty adjacent cells.
+
+        After detection, spanned-over cells are removed from the output and
+        the spanning cell's bbox is expanded to cover the merged region.
+        Rowspan takes priority over colspan at intersections.
+        """
         if not cells:
             return cells
 
-        num_rows = len(cells)
-        num_cols = max(len(row) for row in cells) if cells else 0
+        rowspan_absorbed: set[tuple[int, int]] = set()
+        colspan_absorbed: set[tuple[int, int]] = set()
 
-        # Check for colspan: empty cell to the right with same y-range
-        for row in cells:
-            for cell in row:
-                if cell.text or cell.colspan > 1:
-                    continue
-                # Look right
-                next_col = cell.col + 1
-                next_cell = self._get_cell(cells, cell.row, next_col)
-                if next_cell and next_cell.text and not self._get_cell(
-                    cells, cell.row, cell.col - 1
-                ):
-                    # Potential colspan: this empty cell's neighbor has text
-                    # and shares y-range
-                    cy, ch = cell.bbox["y"], cell.bbox["h"]
-                    ny, nh = next_cell.bbox["y"], next_cell.bbox["h"]
-                    if abs(cy - ny) < 5 and abs(ch - nh) < 5:
-                        next_cell.colspan += 1
-
-        # Check for rowspan: empty cell below with same x-range
+        # --- rowspan first (top-to-bottom, priority over colspan) ---
         for row_idx, row in enumerate(cells):
             for cell in row:
-                if cell.text or cell.rowspan > 1:
+                if not cell.text or (cell.row, cell.col) in rowspan_absorbed:
                     continue
-                # Look at cell above
-                above_cell = self._get_cell(cells, cell.row - 1, cell.col)
-                if above_cell and above_cell.text:
-                    cx, cw = cell.bbox["x"], cell.bbox["w"]
-                    ax, aw = above_cell.bbox["x"], above_cell.bbox["w"]
-                    if abs(cx - ax) < 5 and abs(cw - aw) < 5:
-                        above_cell.rowspan += 1
+                new_y = cell.bbox["y"]
+                new_h = cell.bbox["h"]
+                spans = 0
+                check_row = cell.row + 1
+                while True:
+                    below = self._get_cell(cells, check_row, cell.col)
+                    if below is None or below.text or (below.row, below.col) in rowspan_absorbed:
+                        break
+                    rowspan_absorbed.add((below.row, below.col))
+                    new_h = (below.bbox["y"] + below.bbox["h"]) - new_y
+                    spans += 1
+                    check_row += 1
+                if spans:
+                    cell.rowspan += spans
+                    cell.bbox["h"] = new_h
 
-        return cells
+        # --- colspan second (absorb empty cells in the same row) ---
+        for row in cells:
+            for cell in row:
+                if not cell.text:
+                    continue
+                new_x = cell.bbox["x"]
+                new_w = cell.bbox["w"]
+                spans = 0
+                # Right
+                check_col = cell.col + 1
+                while True:
+                    right = self._get_cell(cells, cell.row, check_col)
+                    if right is None or right.text or (right.row, right.col) in rowspan_absorbed or (right.row, right.col) in colspan_absorbed:
+                        break
+                    colspan_absorbed.add((right.row, right.col))
+                    new_w = (right.bbox["x"] + right.bbox["w"]) - new_x
+                    spans += 1
+                    check_col += 1
+                # Left
+                check_col = cell.col - 1
+                while True:
+                    left = self._get_cell(cells, cell.row, check_col)
+                    if left is None or left.text or (left.row, left.col) in rowspan_absorbed or (left.row, left.col) in colspan_absorbed:
+                        break
+                    colspan_absorbed.add((left.row, left.col))
+                    new_w = (new_x + new_w) - left.bbox["x"]
+                    new_x = left.bbox["x"]
+                    spans += 1
+                    check_col -= 1
+                if spans:
+                    cell.colspan += spans
+                    cell.bbox["x"] = new_x
+                    cell.bbox["w"] = new_w
+
+        # Remove absorbed cells and re-index columns
+        absorbed = rowspan_absorbed | colspan_absorbed
+        result: list[list[CellRegion]] = []
+        for row in cells:
+            remaining = [c for c in row if (c.row, c.col) not in absorbed]
+            for idx, c in enumerate(remaining):
+                c.col = idx
+            result.append(remaining)
+
+        return result
 
     def _get_cell(
         self, cells: list[list[CellRegion]], row: int, col: int

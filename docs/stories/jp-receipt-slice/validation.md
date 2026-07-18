@@ -14,8 +14,8 @@ Each stage has a **gate** that must pass before the next stage begins. Gates are
 | Storage adapter put/get/delete + presigned URL | integration test | Local + S3 mock pass |
 | Document type classifier picks `qualified_invoice` on JP fixture | unit test | 100% of clean fixtures |
 | Audit log listing endpoint | API test | pagination + filtering correct on 10 seeded rows |
-| Webhook fires within 5 s of job completion | integration test | consumer receives `document.review_completed` |
-| Idempotency key returns same `job_id` | API test | duplicate POST returns identical body |
+| Webhook fires within 5 s of extraction completion | integration test | consumer receives `document.extraction_completed`; review actions emit `document.review_completed` |
+| Idempotency key returns same resource | API test | completed retry returns the identical accepted/completed representation; pending retry returns the owned processing resource without reclaiming the lease |
 | Existing test suite green | `pytest` | 100% |
 
 **Stop condition**: any existing test fails.
@@ -125,7 +125,11 @@ def test_jp_invoice_e2e():
     assert any(h["document_id"] == doc["id"] for h in hits["results"])
 ```
 
-This test is the **single proof artifact** that the slice is complete.
+This test is route-integration proof only. It uses deterministic OCR and does
+not prove browser behavior, real OCR/PDF, durable persistence, webhook
+receiver delivery, relevance, or performance gates. The slice remains
+`in_progress` until every row in `docs/TEST_MATRIX.md` has the required
+observed evidence.
 
 ---
 

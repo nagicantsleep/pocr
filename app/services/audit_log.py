@@ -13,6 +13,7 @@ class AuditAction(str, Enum):
     REJECT = "reject"
     PATCH = "patch"
     REVIEW = "review"
+    CANCEL = "cancel"
 
 
 @dataclass
@@ -24,6 +25,7 @@ class AuditEntry:
     reason: str | None
     changes: dict | None
     created_at: datetime
+    tenant_id: str = "development"
 
 
 # Module-level in-memory store. Postgres persistence will come in a later stage.
@@ -40,6 +42,7 @@ class AuditLogService:
         actor: str,
         reason: str | None = None,
         changes: dict | None = None,
+        tenant_id: str = "development",
     ) -> AuditEntry:
         entry = AuditEntry(
             id=str(uuid.uuid4()),
@@ -49,6 +52,7 @@ class AuditLogService:
             reason=reason,
             changes=changes,
             created_at=datetime.now(timezone.utc),
+            tenant_id=tenant_id,
         )
         _store.append(entry)
         return entry
@@ -60,15 +64,19 @@ class AuditLogService:
         actor: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[AuditEntry]:
+        tenant_id: str | None = None,
+    ) -> tuple[list[AuditEntry], int]:
         filtered = _store
         if document_id is not None:
             filtered = [e for e in filtered if e.document_id == document_id]
+        if tenant_id is not None:
+            filtered = [entry for entry in filtered if entry.tenant_id == tenant_id]
         if action is not None:
             filtered = [e for e in filtered if e.action == action]
         if actor is not None:
             filtered = [e for e in filtered if e.actor == actor]
-        return filtered[offset : offset + limit]
+        total = len(filtered)
+        return filtered[offset : offset + limit], total
 
     async def get_entry(self, entry_id: str) -> AuditEntry | None:
         for entry in _store:

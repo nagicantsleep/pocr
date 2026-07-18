@@ -29,8 +29,17 @@ fields:
     type: money
     sources: [layout_label_total, regex_amount_max]
     required: true
+    cross_field_tolerance: 50
     cross_field:
-      - eq: subtotal_8pct + subtotal_10pct + tax_8pct + tax_10pct
+      - eq: subtotal + tax_amount
+  - name: subtotal
+    type: money
+    sources: [regex_subtotal]
+    required: false
+  - name: tax_amount
+    type: money
+    sources: [regex_tax]
+    required: false
   - name: tax_breakdown
     type: object
     properties:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -13,6 +14,74 @@ from app.services.table_reconstructor import reconstruct_table, parse_line_items
 from app.services.invoice_confidence import compute_field_confidence
 
 logger = logging.getLogger(__name__)
+
+
+_REG_NO_RE = re.compile(r"^[TＴ]\s?\d{13}$")
+_VALIDATOR_HANDLERS: dict[str, Any] = {
+    "reg001": lambda value: bool(_REG_NO_RE.match(str(value))) if value else True,
+}
+
+# Date/number format notation tokens (YYYY, MM, DD, HH, mm, ss)
+_FORMAT_TOKEN_RE = re.compile(r"^(YYYY|YY|MM|DD|HH|mm|ss|[-/T :.Z]+)+$")
+
+
+def _is_format_notation(pattern: str) -> bool:
+    """Return True if *pattern* is a date/time format notation (not a regex)."""
+    return bool(_FORMAT_TOKEN_RE.match(pattern))
+
+
+def _match_format_pattern(pattern: str, value: str) -> bool:
+    """Validate *value* against a date/time format notation like YYYY-MM-DD."""
+    # Build a regex from the format notation
+    regex = "^"
+    i = 0
+    while i < len(pattern):
+        if pattern[i:i+4] == "YYYY":
+            regex += r"\d{4}"; i += 4
+        elif pattern[i:i+2] == "YY":
+            regex += r"\d{2}"; i += 2
+        elif pattern[i:i+2] in ("MM", "DD", "HH", "mm", "ss"):
+            regex += r"\d{2}"; i += 2
+        elif pattern[i] in "-/T :.Z":
+            regex += re.escape(pattern[i]); i += 1
+        else:
+            regex += re.escape(pattern[i]); i += 1
+    regex += "$"
+    return bool(re.match(regex, value))
+
+
+def register_validator_handler(code: str, handler) -> None:
+    """Register a validator handler for a given code."""
+    _VALIDATOR_HANDLERS[code] = handler
+
+
+def unregister_validator_handler(code: str) -> None:
+    """Unregister a validator handler."""
+    _VALIDATOR_HANDLERS.pop(code, None)
+
+
+def _resolve_nested_value(path: str, fields: dict[str, FieldResult]) -> float | None:
+    """Resolve a dotted field path like 'tax_breakdown.rate_10pct.subtotal' to a numeric value."""
+    parts = path.split(".")
+    result = fields.get(parts[0])
+    if result is None:
+        return None
+
+    value = result.value
+    for key in parts[1:]:
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            value = value.get(key)
+        elif hasattr(value, key):
+            value = getattr(value, key)
+        else:
+            return None
+
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _table_region_to_dicts(table_region) -> list[dict]:
@@ -111,11 +180,17 @@ class ExtractionKernel:
         for fname in fields:
             per_field[fname] = confidence_map.get(fname, 0.0)
 
-        scored = [v for v in per_field.values() if v > 0]
-        overall = round(sum(scored) / len(scored), 4) if scored else 0.0
+        all_scores = list(per_field.values())
+        overall = round(sum(all_scores) / len(all_scores), 4) if all_scores else 0.0
 
         # 6. needs_review
-        needs_review = overall < review_threshold or len(errors) > 0
+        required_fields = {f.name for f in schema.fields if f.required}
+        missing_required = [
+            n for n in required_fields if fields.get(n) is None or fields[n].value is None
+        ]
+        needs_review = (
+            overall < review_threshold or len(errors) > 0 or len(missing_required) > 0
+        )
 
         return ExtractionResult(
             schema_id=schema.id,
@@ -242,6 +317,17 @@ class ExtractionKernel:
         warnings: list[dict] = []
 
         for field_def in schema.fields:
+            if field_def.required:
+                result = fields.get(field_def.name)
+                if result is None or result.value is None:
+                    errors.append({
+                        "code": "required",
+                        "field": field_def.name,
+                        "severity": "error",
+                        "message": f"Required field {field_def.name} is missing",
+                    })
+
+        for field_def in schema.fields:
             result = fields.get(field_def.name)
             if not result:
                 continue
@@ -251,6 +337,25 @@ class ExtractionKernel:
 
             for cf in field_def.cross_field:
                 self._apply_cross_field(field_def, result, cf, fields, errors, warnings)
+
+            if field_def.pattern and result.value is not None:
+                pattern = field_def.pattern
+                value_str = str(result.value)
+                try:
+                    # Detect date/number format notation (e.g. YYYY-MM-DD) vs regex
+                    if _is_format_notation(pattern):
+                        matched = _match_format_pattern(pattern, value_str)
+                    else:
+                        matched = bool(re.match(pattern, value_str))
+                    if not matched:
+                        warnings.append({
+                            "code": "pattern_mismatch",
+                            "field": field_def.name,
+                            "severity": "warning",
+                            "message": f"Field {field_def.name} value '{result.value}' does not match pattern {pattern}",
+                        })
+                except re.error:
+                    logger.debug("Invalid regex pattern for %s: %s", field_def.name, pattern)
 
         return errors, warnings
 
@@ -262,20 +367,22 @@ class ExtractionKernel:
         errors: list[dict],
         warnings: list[dict],
     ) -> None:
-        """Apply a single field validator."""
+        """Apply a single field validator using the handler registry."""
         code = validator.code
         severity = validator.severity
         target = errors if severity == "error" else warnings
 
-        if code == "reg001":
-            import re
-            if result.value and not re.match(r"^[TＴ]\d{13}$", str(result.value)):
+        handler = _VALIDATOR_HANDLERS.get(code)
+        if handler is not None:
+            if result.value is not None and not handler(result.value):
                 target.append({
                     "code": code,
                     "field": field_def.name,
                     "severity": severity,
-                    "message": f"Invalid registration number format: {result.value}",
+                    "message": f"Validation {code} failed for {field_def.name}: {result.value}",
                 })
+        else:
+            logger.debug("Unknown validator code: %s (no handler registered)", code)
 
     @staticmethod
     def _apply_cross_field(
@@ -294,14 +401,15 @@ class ExtractionKernel:
         total = 0.0
         all_found = True
         for part in parts:
-            ref = fields.get(part)
-            if ref is None or ref.value is None:
+            val = _resolve_nested_value(part, fields)
+            if val is None:
                 all_found = False
                 break
-            total += float(ref.value)
+            total += val
         if all_found and result.value is not None:
             actual = float(result.value)
-            if abs(total - actual) > 5:
+            tolerance = getattr(field_def, "cross_field_tolerance", None) or 5
+            if abs(total - actual) > tolerance:
                 errors.append({
                     "code": "cross_field_eq",
                     "field": field_def.name,

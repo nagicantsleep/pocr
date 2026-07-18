@@ -24,6 +24,7 @@ class FieldDefinition(BaseModel):
     required: bool = False
     validators: list[FieldValidator] = Field(default_factory=list)
     cross_field: list[dict[str, Any]] = Field(default_factory=list)
+    cross_field_tolerance: Optional[float] = None
     properties: Optional[dict[str, Any]] = None
     item: Optional[dict[str, Any]] = None
 

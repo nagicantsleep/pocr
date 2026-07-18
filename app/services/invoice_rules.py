@@ -17,6 +17,7 @@ _TOTAL_KEYWORDS = {
     "合計金額", "ご請求金額", "請求金額", "税込合計",
     "合計", "総合計", "お支払合計", "お支払い合計",
 }
+_OCR_TOTAL_LABEL = re.compile(r"合[計言][計十]")
 
 # Tax rate labels
 _TAX_LABELS_8 = {"8%", "８%", "8％", "８％", "8"}
@@ -81,9 +82,9 @@ def find_total_amount(lines: list[dict]) -> list[dict]:
         List of candidate dicts with value (int), source_text, bbox, confidence.
     """
     candidates = []
-    for line in lines:
+    for index, line in enumerate(lines):
         text = line["text"].strip()
-        has_kw = any(kw in text for kw in _TOTAL_KEYWORDS)
+        has_kw = any(kw in text for kw in _TOTAL_KEYWORDS) or bool(_OCR_TOTAL_LABEL.search(text))
         if not has_kw:
             continue
 
@@ -121,8 +122,48 @@ def find_total_amount(lines: list[dict]) -> list[dict]:
                 "confidence": line["confidence"],
                 "rank": len(candidates) + 1,
             })
+            continue
+
+        nearby = _find_nearby_total_amount(lines, index)
+        if nearby is not None:
+            amount_line, amount = nearby
+            candidates.append({
+                "value": amount,
+                "source_text": f"{text} | {amount_line['text'].strip()}",
+                "bbox": amount_line["bbox"],
+                "confidence": min(line["confidence"], amount_line["confidence"]),
+                "rank": len(candidates) + 1,
+            })
 
     return candidates
+
+def _find_nearby_total_amount(lines: list[dict], label_index: int) -> tuple[dict, int] | None:
+    """Match an OCR-split total label to a nearby, right-aligned currency value."""
+    label = lines[label_index]
+    label_top_left = label.get("bbox", {}).get("top_left", [0, 0])
+    label_x = label_top_left[0] if label_top_left else 0
+    label_y = label_top_left[1] if len(label_top_left) > 1 else 0
+    candidates: list[tuple[float, dict, int]] = []
+
+    for line in lines:
+        text = line.get("text", "").strip()
+        if not text or not any(symbol in text for symbol in ("¥", "￥")):
+            continue
+        amount = normalize_amount(text)
+        if amount is None or amount <= 0:
+            continue
+        top_left = line.get("bbox", {}).get("top_left", [0, 0])
+        line_x = top_left[0] if top_left else 0
+        line_y = top_left[1] if len(top_left) > 1 else 0
+        vertical_distance = abs(line_y - label_y)
+        if line_x <= label_x or vertical_distance > 100:
+            continue
+        candidates.append((vertical_distance, line, amount))
+
+    if not candidates:
+        return None
+    _, amount_line, amount = min(candidates, key=lambda candidate: candidate[0])
+    return amount_line, amount
 
 
 _AMOUNT_EXTRACT = re.compile(r"[\d,０-９，]+")

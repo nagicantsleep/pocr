@@ -104,28 +104,36 @@ class StructuredJobRepository:
             "completed_at": row[8],
         }
 
-    def mark_running(self, job_id: str) -> None:
+    def mark_running(self, job_id: str) -> bool:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
         with self._conn() as conn:
-            conn.execute(
+            result = conn.execute(
                 """
                 UPDATE structured_ocr_jobs
                 SET status = %s, started_at = COALESCE(started_at, %s), updated_at = %s
-                WHERE job_id = %s
+                WHERE job_id = %s AND status = %s
                 """,
-                (StructuredJobStatus.RUNNING, now, now, job_id),
+                (
+                    StructuredJobStatus.RUNNING,
+                    now,
+                    now,
+                    job_id,
+                    StructuredJobStatus.QUEUED,
+                ),
             )
+        return result.rowcount == 1
 
-    def mark_success(self, job_id: str, structured_json: dict[str, Any]) -> None:
+    def mark_success(self, job_id: str, structured_json: dict[str, Any]) -> bool:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
         with self._conn() as conn:
-            conn.execute(
+            result = conn.execute(
                 """
                 UPDATE structured_ocr_jobs
-                SET status = %s, structured_json = %s::jsonb, completed_at = %s, updated_at = %s
-                WHERE job_id = %s
+                SET status = %s, structured_json = %s::jsonb, error = NULL,
+                    completed_at = %s, updated_at = %s
+                WHERE job_id = %s AND status = %s
                 """,
                 (
                     StructuredJobStatus.SUCCESS,
@@ -133,21 +141,76 @@ class StructuredJobRepository:
                     now,
                     now,
                     job_id,
+                    StructuredJobStatus.RUNNING,
                 ),
             )
+        return result.rowcount == 1
 
-    def mark_failed(self, job_id: str, error: str) -> None:
+    def mark_failed(self, job_id: str, error: str) -> bool:
         now = datetime.now(timezone.utc)
         self.ensure_schema()
         with self._conn() as conn:
-            conn.execute(
+            result = conn.execute(
                 """
                 UPDATE structured_ocr_jobs
                 SET status = %s, error = %s, completed_at = %s, updated_at = %s
-                WHERE job_id = %s
+                WHERE job_id = %s AND status = %s
                 """,
-                (StructuredJobStatus.FAILED, error, now, now, job_id),
+                (
+                    StructuredJobStatus.FAILED,
+                    error,
+                    now,
+                    now,
+                    job_id,
+                    StructuredJobStatus.RUNNING,
+                ),
             )
+        return result.rowcount == 1
+
+    def mark_queued_for_retry(self, job_id: str, error: str) -> bool:
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._conn() as conn:
+            result = conn.execute(
+                """
+                UPDATE structured_ocr_jobs
+                SET status = %s, error = %s, updated_at = %s
+                WHERE job_id = %s AND status = %s
+                """,
+                (
+                    StructuredJobStatus.QUEUED,
+                    error,
+                    now,
+                    job_id,
+                    StructuredJobStatus.RUNNING,
+                ),
+            )
+        return result.rowcount == 1
+
+    def fail_stale_running_jobs(self, stale_after_seconds: int) -> int:
+        """Fail work abandoned by a restarted standardizer worker."""
+        if stale_after_seconds < 1:
+            raise ValueError("stale_after_seconds must be positive")
+        now = datetime.now(timezone.utc)
+        self.ensure_schema()
+        with self._conn() as conn:
+            result = conn.execute(
+                """
+                UPDATE structured_ocr_jobs
+                SET status = %s, error = %s, completed_at = %s, updated_at = %s
+                WHERE status = %s
+                  AND updated_at <= now() - make_interval(secs => %s)
+                """,
+                (
+                    StructuredJobStatus.FAILED,
+                    "Worker restarted while job was running; marked failed by recovery",
+                    now,
+                    now,
+                    StructuredJobStatus.RUNNING,
+                    stale_after_seconds,
+                ),
+            )
+        return result.rowcount
 
     def close(self) -> None:
         """Close the connection pool. Call on application shutdown."""

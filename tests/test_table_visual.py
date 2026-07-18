@@ -300,10 +300,10 @@ class TestVisualTableDetectorRowspanColspan:
     """Tests for rowspan/colspan detection."""
 
     def test_colspan_detection(self):
-        """Cells spanning 2 columns should be detected."""
+        """Cells spanning 2 columns should be detected and empty cells collapsed."""
         detector = VisualTableDetector()
 
-        # Create a cell grid where cell (0,1) has text and cell (0,0) is empty
+        # Create a cell grid where cell (0,0) is empty and cell (0,1) has text
         cells = [
             [
                 CellRegion(row=0, col=0, bbox={"x": 0, "y": 0, "w": 50, "h": 30}),
@@ -329,11 +329,18 @@ class TestVisualTableDetectorRowspanColspan:
 
         result = detector._detect_rowspan_colspan(cells)
 
-        # Cell (0,1) should have colspan >= 2 since (0,0) is empty and same y-range
-        assert result[0][1].colspan >= 2
+        # Empty cell (0,0) should be collapsed into cell (0,1)
+        assert len(result[0]) == 1
+        assert result[0][0].text == "merged"
+        assert result[0][0].colspan >= 2
+        # Bbox expanded to cover both cells: x=0, w=150
+        assert result[0][0].bbox["x"] == 0
+        assert result[0][0].bbox["w"] == 150
+        # Row 1 unchanged
+        assert len(result[1]) == 2
 
     def test_rowspan_detection(self):
-        """Cells spanning 2 rows should be detected."""
+        """Cells spanning 2 rows should be detected and empty cells collapsed."""
         detector = VisualTableDetector()
 
         # Create a cell grid where cell (0,0) has text and cell (1,0) is empty
@@ -364,6 +371,14 @@ class TestVisualTableDetectorRowspanColspan:
 
         # Cell (0,0) should have rowspan >= 2 since (1,0) is empty and same x-range
         assert result[0][0].rowspan >= 2
+        # Empty cell (1,0) should be collapsed
+        assert len(result[1]) == 1
+        assert result[1][0].text == "C"
+        # Bbox of spanning cell expanded vertically: y=0, h=60
+        assert result[0][0].bbox["y"] == 0
+        assert result[0][0].bbox["h"] == 60
+        # Row 0 unchanged
+        assert len(result[0]) == 2
 
 
 class TestFindIntersections:

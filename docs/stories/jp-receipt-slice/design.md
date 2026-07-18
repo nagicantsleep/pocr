@@ -126,9 +126,13 @@ multipart/form-data: file (image | pdf)
   -> job_repository.mark_success(structured_json)
   -> storage.put(key=extracted/{job_id}, structured_json)
   -> embed each chunk → pgvector
-  -> publish document.review_completed event → webhook
+  -> publish document.extraction_completed event → webhook
   -> return Document to caller
 ```
+
+`document.review_completed` is reserved for approve and reject actions. A
+storage failure aborts and cleans up extraction before audit, search, or
+webhook publication.
 
 ## Pre-processing Chain
 

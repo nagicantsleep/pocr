@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from app.config import get_settings
-from app.services.search.embeddings import EmbeddingService
+from app.auth import AuthenticatedPrincipal, require_operator
+from app.services.search.factory import build_search_service
 from app.services.search.repository import SearchRepository
 from app.services.search.service import SearchService
 
@@ -14,19 +14,13 @@ router = APIRouter(prefix="/v1/search", tags=["Search"])
 
 # Module-level singletons (in-memory Stage 1)
 _repository = SearchRepository()
-_embedding_service: EmbeddingService | None = None
 _search_service: SearchService | None = None
 
 
 def _get_search_service() -> SearchService:
-    global _embedding_service, _search_service
+    global _search_service
     if _search_service is None:
-        settings = get_settings()
-        _embedding_service = EmbeddingService(
-            model=settings.SEARCH_EMBEDDING_MODEL,
-            api_key=settings.SEARCH_EMBEDDING_API_KEY,
-        )
-        _search_service = SearchService(_repository, _embedding_service)
+        _search_service = build_search_service(_repository)
     return _search_service
 
 
@@ -44,6 +38,7 @@ class SearchResponse(BaseModel):
     total: int
     query: str
     mode: str
+    degraded: bool = False
 
 
 @router.get("", response_model=SearchResponse)
@@ -53,9 +48,16 @@ async def search_documents(
     alpha: float = Query(0.7, ge=0.0, le=1.0),
     limit: int = Query(20, ge=1, le=100),
     svc: SearchService = Depends(_get_search_service),
+    principal: AuthenticatedPrincipal = Depends(require_operator),
 ) -> SearchResponse:
     """Search indexed documents."""
-    results = await svc.search(query=q, mode=mode, alpha=alpha, limit=limit)
+    results, effective_mode, degraded = await svc.search(
+        query=q,
+        mode=mode,
+        alpha=alpha,
+        limit=limit,
+        tenant_id=principal.tenant_id,
+    )
     items = [
         SearchResultItem(
             document_id=r.document_id,
@@ -67,4 +69,4 @@ async def search_documents(
         )
         for r in results
     ]
-    return SearchResponse(results=items, total=len(items), query=q, mode=mode)
+    return SearchResponse(results=items, total=len(items), query=q, mode=effective_mode, degraded=degraded)

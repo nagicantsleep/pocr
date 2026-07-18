@@ -2,7 +2,10 @@ from unittest.mock import patch
 
 from app.schemas.responses import StructuredOCRData
 from app.services.structured_extraction import StandardizerError
-from app.workers.structured_standardizer import process_standardization_message
+from app.workers.structured_standardizer import (
+    process_standardization_message,
+    recover_stale_running_jobs,
+)
 
 
 class FakeLimiter:
@@ -56,12 +59,15 @@ def test_worker_standardizes_and_marks_success():
 
         def mark_running(self, job_id):
             calls.append(("running", job_id))
+            return True
 
         def mark_success(self, job_id, structured_json):
             calls.append(("success", job_id, structured_json["title"]))
+            return True
 
         def mark_failed(self, job_id, error):
             calls.append(("failed", job_id, error))
+            return True
 
     class FakePublisher:
         def publish(self, message, topic=None):
@@ -85,12 +91,19 @@ def test_worker_republishes_retryable_provider_failure():
 
         def mark_running(self, job_id):
             calls.append(("running", job_id))
+            return True
 
         def mark_success(self, job_id, structured_json):
             calls.append(("success", job_id))
+            return True
 
         def mark_failed(self, job_id, error):
             calls.append(("failed", job_id, error))
+            return True
+
+        def mark_queued_for_retry(self, job_id, error):
+            calls.append(("queued", job_id, error))
+            return True
 
     class FakePublisher:
         def publish(self, message, topic=None):
@@ -113,6 +126,7 @@ def test_worker_republishes_retryable_provider_failure():
 
     assert calls == [
         ("running", "structured_test"),
+        ("queued", "structured_test", "standardizer_http_error: 429 rate limit"),
         ("publish", "ocr.standardize.retry", "structured_test", 1, 60, True),
     ]
 
@@ -157,12 +171,15 @@ def test_worker_marks_failed_and_publishes_dlq_on_permanent_failure():
 
         def mark_running(self, job_id):
             calls.append(("running", job_id))
+            return True
 
         def mark_success(self, job_id, structured_json):
             calls.append(("success", job_id))
+            return True
 
         def mark_failed(self, job_id, error):
             calls.append(("failed", job_id, error))
+            return True
 
     class FakePublisher:
         def publish(self, message, topic=None):
@@ -179,3 +196,39 @@ def test_worker_marks_failed_and_publishes_dlq_on_permanent_failure():
         ("failed", "structured_test", "schema rejected"),
         ("publish", "ocr.standardize.dlq", "structured_test", "schema rejected"),
     ]
+
+
+def test_worker_recovery_marks_only_stale_running_jobs():
+    class FakeRepo:
+        def fail_stale_running_jobs(self, stale_after_seconds):
+            assert stale_after_seconds == 300
+            return 1
+
+    with patch(
+        "app.workers.structured_standardizer.get_structured_job_repository",
+        return_value=FakeRepo(),
+    ):
+        assert recover_stale_running_jobs() == 1
+
+
+def test_worker_ignores_duplicate_after_terminal_job():
+    calls = []
+
+    class FakeRepo:
+        def get_job(self, job_id):
+            return _job()
+
+        def mark_running(self, job_id):
+            calls.append(("mark_running", job_id))
+            return False
+
+    class FakePublisher:
+        def publish(self, message, topic=None):
+            calls.append(("publish", topic, message))
+
+    with patch("app.workers.structured_standardizer.get_structured_job_repository", return_value=FakeRepo()), \
+        patch("app.workers.structured_standardizer.RedisMinuteRateLimiter", return_value=FakeLimiter()), \
+        patch("app.workers.structured_standardizer.get_structured_job_publisher", return_value=FakePublisher()):
+        process_standardization_message({"job_id": "structured_test", "provider": "openrouter"})
+
+    assert calls == [("mark_running", "structured_test")]

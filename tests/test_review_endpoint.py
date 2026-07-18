@@ -91,17 +91,18 @@ def test_get_document_not_found(client):
 def test_approve_document(client, seed_documents):
     resp = client.post(
         "/v1/documents/doc-1/approve",
-        headers={"X-Actor": "alice"},
+        headers={"X-Actor": "spoofed@example.com"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["review_status"] == "approved"
-    assert data["reviewed_by"] == "alice"
+    assert data["reviewed_by"] == "anonymous"
 
 
-def test_approve_document_without_actor(client, seed_documents):
+def test_approve_document_uses_authenticated_principal(client, seed_documents):
     resp = client.post("/v1/documents/doc-1/approve")
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    assert resp.json()["reviewed_by"] == "anonymous"
 
 
 # --- POST /v1/documents/{id}/reject ---
@@ -110,12 +111,12 @@ def test_approve_document_without_actor(client, seed_documents):
 def test_reject_document(client, seed_documents):
     resp = client.post(
         "/v1/documents/doc-1/reject",
-        headers={"X-Actor": "bob", "X-Reason": "bad quality"},
+        headers={"X-Actor": "spoofed@example.com", "X-Reason": "bad quality"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["review_status"] == "rejected"
-    assert data["reviewed_by"] == "bob"
+    assert data["reviewed_by"] == "anonymous"
     assert data["review_reason"] == "bad quality"
 
 
@@ -126,17 +127,18 @@ def test_patch_document_fields(client, seed_documents):
     resp = client.patch(
         "/v1/documents/doc-1/fields",
         json={"vendor": "New Corp"},
-        headers={"X-Actor": "charlie"},
+        headers={"X-Actor": "spoofed@example.com"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["structured_json"]["vendor"] == "New Corp"
-    assert data["reviewed_by"] == "charlie"
+    assert data["reviewed_by"] == "anonymous"
 
 
-def test_patch_document_fields_without_actor(client, seed_documents):
+def test_patch_document_fields_uses_authenticated_principal(client, seed_documents):
     resp = client.patch(
         "/v1/documents/doc-1/fields",
         json={"vendor": "New Corp"},
     )
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    assert resp.json()["reviewed_by"] == "anonymous"

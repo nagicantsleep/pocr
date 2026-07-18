@@ -85,6 +85,26 @@ docker-compose -f docker-compose.gpu.yml up --build
 | `/invoice/debug` | POST | Debug mode with OCR, layout, regex candidates, table candidates |
 | `/invoice/batch` | POST | Process multiple invoice images |
 
+### Versioned JP Invoice API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/invoice-jp/extract` | POST | Synchronous JP invoice extraction |
+| `/v1/invoice-jp/extract:async` | POST | Schedule extraction and return a job ID |
+| `/v1/jobs/{job_id}` | GET | Read async extraction status and results |
+| `/v1/invoice-jp/{document_id}` | GET | Read a stored JP invoice |
+| `/v1/documents` | GET | List review documents |
+| `/v1/search` | GET | Search indexed documents |
+| `/v1/audit` | GET | List audit entries |
+| `/v1/webhooks` | POST, GET | Register or list webhook subscriptions |
+
+`Idempotency-Key` is optional on extraction endpoints. When
+`OPERATOR_BEARER_TOKEN` is configured, operator routes require
+`Authorization: Bearer <token>`. Document, audit, search, and webhook state is
+in-process for this slice and does not survive restart. Webhook registration
+also requires `WEBHOOK_ALLOWED_HOSTS` to list approved HTTPS hosts. See
+`docs/product/ocr-api.md` for the complete `/v1` contract.
+
 #### Extract from image upload
 ```bash
 curl -X POST http://localhost:8000/invoice/extract \
@@ -274,13 +294,13 @@ The API returns structured error responses:
 
 ```bash
 # Run all tests
-pytest tests/
+python -m pytest tests/
 
 # Run with coverage
-pytest tests/ --cov=app --cov-report=html
+python -m pytest tests/ --cov=app --cov-report=html
 
 # Run specific test file
-pytest tests/test_ocr.py -v
+python -m pytest tests/test_ocr.py -v
 ```
 
 ### Project Structure

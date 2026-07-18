@@ -35,13 +35,21 @@ class EmbeddingService:
         self._model = model
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
+        if not api_key:
+            logger.warning("No API key provided. EmbeddingService will use mock embeddings. Semantic/hybrid search will fall back to keyword mode.")
+
+    @property
+    def is_mock(self) -> bool:
+        return self._api_key is None or self._api_key == ""
 
     @property
     def _use_mock(self) -> bool:
-        return self._api_key is None or self._api_key == ""
+        return self.is_mock
 
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
+        if self._use_mock:
+            logger.warning("Embedding service running in mock mode (no API key). Semantic search disabled.")
         results = await self.embed_batch([text])
         return results[0]
 

@@ -57,6 +57,26 @@ async def health_check():
     )
 
 
+@router.get("/embedding")
+async def embedding_mode():
+    """Report the active EmbeddingService mode (`openai`, `local`, or `mock`).
+
+    Operators rely on this to confirm SEARCH_EMBEDDING_API_KEY is actually
+    configured in production — silent fallback to mock is a known failure mode.
+    """
+    try:
+        from app.services.search.embeddings import EmbeddingService
+
+        settings = get_settings()
+        svc = EmbeddingService(
+            model=settings.SEARCH_EMBEDDING_MODEL,
+            api_key=settings.SEARCH_EMBEDDING_API_KEY,
+        )
+        return {"mode": "mock" if getattr(svc, "is_mock", False) else "openai"}
+    except Exception as exc:
+        return {"mode": "unknown", "error": str(exc)}
+
+
 @router.get(
     "/ready",
     responses={

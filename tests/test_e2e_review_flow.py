@@ -95,7 +95,7 @@ async def test_approve_persists_and_audits(client, seeded_doc):
     )
     assert resp.status_code == 200
     assert resp.json()["review_status"] == "approved"
-    assert resp.json()["reviewed_by"] == "alice@example.com"
+    assert resp.json()["reviewed_by"] == "anonymous"
 
     # Document reflects approved status
     doc_resp = client.get("/v1/documents/e2e-001")
@@ -121,7 +121,7 @@ async def test_reject_persists_and_audits(client, seeded_doc):
     )
     assert resp.status_code == 200
     assert resp.json()["review_status"] == "rejected"
-    assert resp.json()["reviewed_by"] == "bob@example.com"
+    assert resp.json()["reviewed_by"] == "anonymous"
     assert resp.json()["review_reason"] == "bad quality"
 
     doc_resp = client.get("/v1/documents/e2e-001")
@@ -146,7 +146,7 @@ async def test_patch_fields_with_audit(client, seeded_doc):
     )
     assert resp.status_code == 200
     assert resp.json()["structured_json"]["total_amount"] == 120000
-    assert resp.json()["reviewed_by"] == "charlie@example.com"
+    assert resp.json()["reviewed_by"] == "anonymous"
 
     doc_resp = client.get("/v1/documents/e2e-001")
     assert doc_resp.status_code == 200

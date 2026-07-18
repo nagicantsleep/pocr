@@ -3,8 +3,10 @@
 import json
 import logging
 import os
+import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -19,6 +21,7 @@ class JobStatus:
 
     QUEUED = "queued"
     RUNNING = "running"
+    COMMITTING = "committing"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -39,6 +42,9 @@ class JobStore:
         """
         self.settings = get_settings()
         self.backend = backend.lower()
+        # ponytail: serializes transitions in this in-process slice. Replace
+        # with a transactional persistent job repository before multi-process workers.
+        self._transition_lock = threading.RLock()
 
         if self.backend == "filesystem":
             self._init_filesystem()
@@ -100,12 +106,15 @@ class JobStore:
         """Save a job to storage."""
         if self.backend == "filesystem":
             job_file = self._get_job_file(job_id)
+            temporary_file = job_file.with_suffix(".tmp")
             try:
-                with open(job_file, "w") as f:
+                with open(temporary_file, "w") as f:
                     json.dump(job_data, f, indent=2, default=str)
+                os.replace(temporary_file, job_file)
                 return True
             except Exception as e:
                 logger.error(f"Failed to save job {job_id}: {e}")
+                temporary_file.unlink(missing_ok=True)
                 return False
         elif self.backend == "redis":
             try:
@@ -120,6 +129,37 @@ class JobStore:
                 logger.error(f"Failed to save job {job_id} to Redis: {e}")
                 return False
         return False
+
+    @contextmanager
+    def _job_transition_guard(self, job_id: str):
+        """Serialize a filesystem job transition across worker processes."""
+        with self._transition_lock:
+            if self.backend != "filesystem":
+                yield
+                return
+
+            lock_path = self.job_dir / f"{job_id}.lock"
+            with open(lock_path, "a+b") as lock_file:
+                lock_file.seek(0)
+                lock_file.write(b"\0")
+                lock_file.flush()
+                if os.name == "nt":
+                    import msvcrt
+
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    if os.name == "nt":
+                        lock_file.seek(0)
+                        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def _delete_job_file(self, job_id: str) -> bool:
         """Delete a job file."""
@@ -147,6 +187,9 @@ class JobStore:
         lang: str = "auto",
         min_confidence: float = 0.0,
         layout_analysis: bool = False,
+        tenant_id: str | None = "development",
+        idempotency_key: str | None = None,
+        request_fingerprint: str | None = None,
     ) -> Dict[str, Any]:
         """
         Create a new async OCR job.
@@ -179,6 +222,11 @@ class JobStore:
                 "total": len(images),
             },
         }
+        if tenant_id is not None:
+            job_data["tenant_id"] = tenant_id
+        if idempotency_key is not None:
+            job_data["idempotency_key"] = idempotency_key
+            job_data["request_fingerprint"] = request_fingerprint
 
         # Save job
         if not self._save_job(job_id, job_data):
@@ -195,6 +243,41 @@ class JobStore:
                 created_at + timedelta(minutes=len(images) * 2)
             ).isoformat() + "Z",
         }
+
+    def find_job_by_idempotency(
+        self,
+        tenant_id: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Recover the job created for an idempotent request after a lease loss."""
+        if self.backend == "filesystem":
+            for job_file in self.job_dir.glob("job_*.json"):
+                job = self._load_job(job_file.stem)
+                if (
+                    job
+                    and job.get("tenant_id") == tenant_id
+                    and job.get("idempotency_key") == idempotency_key
+                    and job.get("request_fingerprint") == request_fingerprint
+                ):
+                    return job
+            return None
+
+        try:
+            for redis_key in self.redis_client.scan_iter(match="ocr_job:*"):
+                raw = self.redis_client.get(redis_key)
+                if not raw:
+                    continue
+                job = json.loads(raw)
+                if (
+                    job.get("tenant_id") == tenant_id
+                    and job.get("idempotency_key") == idempotency_key
+                    and job.get("request_fingerprint") == request_fingerprint
+                ):
+                    return job
+        except Exception as exc:
+            logger.error("Failed to recover idempotent job: %s", exc)
+        return None
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -226,6 +309,7 @@ class JobStore:
         results: Optional[List[Dict[str, Any]]] = None,
         progress: Optional[Dict[str, int]] = None,
         error: Optional[str] = None,
+        expected_statuses: tuple[str, ...] | None = None,
     ) -> bool:
         """
         Update job status and results.
@@ -240,29 +324,109 @@ class JobStore:
         Returns:
             True if updated successfully
         """
-        job_data = self._load_job(job_id)
-        if job_data is None:
-            return False
+        if self.backend == "redis":
+            return self._update_redis_job(
+                job_id,
+                status=status,
+                results=results,
+                progress=progress,
+                error=error,
+                expected_statuses=expected_statuses,
+            )
 
+        with self._job_transition_guard(job_id):
+            job_data = self._load_job(job_id)
+            if job_data is None:
+                return False
+            if expected_statuses and job_data.get("status") not in expected_statuses:
+                return False
+
+            if status:
+                job_data["status"] = status
+
+            if results is not None:
+                job_data["results"] = results
+
+            if progress:
+                job_data["progress"] = progress
+
+            if error:
+                job_data["error"] = error
+
+            if status == JobStatus.RUNNING and "started_at" not in job_data:
+                job_data["started_at"] = datetime.utcnow().isoformat() + "Z"
+
+            if status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                job_data["completed_at"] = datetime.utcnow().isoformat() + "Z"
+
+            return self._save_job(job_id, job_data)
+
+    def _update_redis_job(
+        self,
+        job_id: str,
+        *,
+        status: Optional[str],
+        results: Optional[List[Dict[str, Any]]],
+        progress: Optional[Dict[str, int]],
+        error: Optional[str],
+        expected_statuses: tuple[str, ...] | None,
+    ) -> bool:
+        """Atomically compare and update a Redis-backed job."""
+        updates: dict[str, Any] = {}
         if status:
-            job_data["status"] = status
-
+            updates["status"] = status
         if results is not None:
-            job_data["results"] = results
-
+            updates["results"] = results
         if progress:
-            job_data["progress"] = progress
-
+            updates["progress"] = progress
         if error:
-            job_data["error"] = error
+            updates["error"] = error
 
-        if status == JobStatus.RUNNING and "started_at" not in job_data:
-            job_data["started_at"] = datetime.utcnow().isoformat() + "Z"
-
-        if status in (JobStatus.COMPLETED, JobStatus.FAILED):
-            job_data["completed_at"] = datetime.utcnow().isoformat() + "Z"
-
-        return self._save_job(job_id, job_data)
+        try:
+            result = self.redis_client.eval(
+                """
+                local raw = redis.call('GET', KEYS[1])
+                if not raw then
+                    return 0
+                end
+                local job = cjson.decode(raw)
+                local expected = cjson.decode(ARGV[1])
+                if #expected > 0 then
+                    local allowed = false
+                    for _, value in ipairs(expected) do
+                        if job.status == value then
+                            allowed = true
+                            break
+                        end
+                    end
+                    if not allowed then
+                        return 0
+                    end
+                end
+                local updates = cjson.decode(ARGV[2])
+                for key, value in pairs(updates) do
+                    job[key] = value
+                end
+                if updates.status == 'running' and not job.started_at then
+                    job.started_at = ARGV[3]
+                end
+                if updates.status == 'completed' or updates.status == 'failed' then
+                    job.completed_at = ARGV[3]
+                end
+                redis.call('SETEX', KEYS[1], ARGV[4], cjson.encode(job))
+                return 1
+                """,
+                1,
+                f"ocr_job:{job_id}",
+                json.dumps(list(expected_statuses or ())),
+                json.dumps(updates, default=str),
+                datetime.utcnow().isoformat() + "Z",
+                str(self.settings.JOB_TTL_HOURS * 3600),
+            )
+            return bool(result)
+        except Exception as exc:
+            logger.error("Failed to atomically update Redis job %s: %s", job_id, exc)
+            return False
 
     def delete_job(self, job_id: str) -> bool:
         """
@@ -286,15 +450,33 @@ class JobStore:
         Returns:
             True if cancelled successfully
         """
-        job_data = self._load_job(job_id)
-        if job_data is None:
-            return False
+        return self.update_job(
+            job_id,
+            status=JobStatus.CANCELLED,
+            expected_statuses=(JobStatus.QUEUED, JobStatus.RUNNING),
+        )
 
-        # Can only cancel queued or running jobs
-        if job_data["status"] not in (JobStatus.QUEUED, JobStatus.RUNNING):
-            return False
+    def fail_stale_jobs(self, stale_statuses: tuple[str, ...] = ("running", "committing")) -> int:
+        """Mark jobs in transient statuses as failed on startup recovery.
 
-        return self.update_job(job_id, status=JobStatus.CANCELLED)
+        Called during application startup to handle jobs that were interrupted
+        by a process restart. Returns the number of jobs transitioned.
+        """
+        count = 0
+        jobs = self.list_jobs()
+        for job in jobs:
+            if job.get("status") in stale_statuses:
+                job_id = job["job_id"]
+                ok = self.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    error="Process restarted while job was in progress; marked failed by startup recovery",
+                    expected_statuses=stale_statuses,
+                )
+                if ok:
+                    logger.warning("Startup recovery: marked job %s as failed (was %s)", job_id, job.get("status"))
+                    count += 1
+        return count
 
     def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """

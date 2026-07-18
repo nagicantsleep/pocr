@@ -80,3 +80,36 @@ leaves `structured_json` null until the worker succeeds.
 Retryable OpenRouter failures are HTTP 429, 502, 503, and 504. The worker
 publishes retryable failures to `ocr.standardize.retry`; permanent failures are
 marked `failed` and published to `ocr.standardize.dlq`.
+
+## Version 1 JP Invoice API
+
+| Method | Endpoint | Contract |
+| --- | --- | --- |
+| `POST` | `/v1/invoice-jp/extract` | Extract an uploaded PNG, JPEG, TIFF, or PDF and return the first document ID, fields, confidence, `needs_review`, and `page_count`. |
+| `POST` | `/v1/invoice-jp/extract:async` | Schedule extraction and return a `job_id` with status `received`. |
+| `GET` | `/v1/jobs/{job_id}` | Read the filtered job status and results; raw upload images are never returned. |
+| `POST` | `/v1/jobs/{job_id}/cancel` | Cancel a queued or running job before its non-cancellable commit phase. |
+| `GET` | `/v1/invoice-jp/{document_id}` | Read a stored JP invoice. |
+| `POST` | `/v1/invoice-jp/{document_id}/approve` | Approve as the authenticated tenant principal; accepts optional `X-Reason`. |
+| `POST` | `/v1/invoice-jp/{document_id}/reject` | Reject as the authenticated tenant principal; accepts optional `X-Reason`. |
+| `PATCH` | `/v1/invoice-jp/{document_id}/fields` | Patch fields as the authenticated tenant principal; accepts optional `X-Reason` and `X-Force`. |
+| `GET` | `/v1/documents` | List review documents. |
+| `GET` | `/v1/search` | Search indexed document chunks. |
+| `GET` | `/v1/audit` | List audit entries. |
+| `POST`, `GET`, `DELETE` | `/v1/webhooks` | Register, list, or remove subscriptions. |
+
+Extraction completion publishes `document.extraction_completed` with
+`document_id`, status, document type, confidence, and `needs_review`.
+`document.review_completed` is reserved for approve and reject actions.
+
+`Idempotency-Key` is optional on extraction endpoints. The key binds the
+normalized request bytes, content type, language override, and schema version.
+It creates an expiring pending lease scoped to the authenticated tenant;
+duplicate callers retain the owner resource and never delete-reclaim it. A
+completed retry returns the persisted canonical representation. Same-resource
+behavior depends on the configured idempotency store being reachable.
+`OPERATOR_TOKEN_MAP` maps a bearer token to a tenant, user, and roles;
+production fails closed when no identity map is configured. Review mutations
+require `admin`, `operator`, or `reviewer` roles in production. Document, job,
+audit, search, and webhook reads are tenant-filtered in this slice, but their
+backing stores remain in-process and are not durable across restart.

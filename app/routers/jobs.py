@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from fastapi.responses import JSONResponse
 
-from app.auth import verify_api_key
+from app.auth import require_operator, verify_api_key
 
 from app.config import get_settings
 from app.schemas.requests import JobCreateRequest
@@ -266,7 +266,10 @@ async def create_job(
         410: {"model": ErrorResponse, "description": "Job Expired"},
     },
 )
-async def get_job_status(job_id: str):
+async def get_job_status(
+    job_id: str,
+    _actor_token: str = Depends(require_operator),
+):
     """
     Get the status and results of an async OCR job.
 
@@ -325,7 +328,10 @@ async def get_job_status(job_id: str):
         400: {"model": ErrorResponse, "description": "Cannot Cancel Job"},
     },
 )
-async def cancel_job(job_id: str):
+async def cancel_job(
+    job_id: str,
+    _actor_token: str = Depends(require_operator),
+):
     """
     Cancel a pending or running OCR job.
 

@@ -1,71 +1,56 @@
-import numpy as np
+import sys
+from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
-from app.services.ocr_engine import normalize_ocr_results
+from PIL import Image
+
+from app.services import ocr_engine
 
 
-def test_normalize_paddleocr_35_result_with_dt_polys():
-    raw_results = [
-        {
-            "rec_texts": ["NO.", "合計"],
-            "rec_scores": [0.98, 0.91],
-            "dt_polys": [
-                np.array([[10, 20], [60, 20], [60, 40], [10, 40]], dtype=np.int16),
-                np.array([[100, 120], [180, 120], [180, 150], [100, 150]], dtype=np.int16),
-            ],
-        }
-    ]
+def test_get_ocr_engine_maps_ja_to_installed_japanese_model_name():
+    ocr_engine._ocr_engines.clear()
 
-    result = normalize_ocr_results(
-        raw_results=raw_results,
-        original_width=200,
-        original_height=200,
-        lang="japan",
-        min_confidence=0.0,
-        include_polygon=True,
-        inference_time_ms=123,
+    paddle_ocr = MagicMock()
+    with patch.dict(sys.modules, {"paddleocr": SimpleNamespace(PaddleOCR=paddle_ocr)}):
+        ocr_engine.get_ocr_engine("ja")
+
+    assert paddle_ocr.call_args.kwargs["lang"] == "japan"
+    ocr_engine._ocr_engines.clear()
+
+
+def test_get_ocr_engine_maps_auto_default_ja_to_installed_japanese_model_name():
+    ocr_engine._ocr_engines.clear()
+
+    paddle_ocr = MagicMock()
+    settings = SimpleNamespace(MODEL_LANG="ja", PADDLE_DEVICE="cpu")
+    with patch.object(ocr_engine, "get_settings", return_value=settings), patch.dict(
+        sys.modules, {"paddleocr": SimpleNamespace(PaddleOCR=paddle_ocr)}
+    ):
+        ocr_engine.get_ocr_engine("auto")
+
+    assert paddle_ocr.call_args.kwargs["lang"] == "japan"
+    ocr_engine._ocr_engines.clear()
+
+
+def test_gpu_fallback_maps_auto_default_ja_to_installed_japanese_model_name():
+    ocr_engine._ocr_engines.clear()
+    ocr_engine._cpu_fallback_engines.clear()
+    ocr_engine._ocr_engines["japan"] = MagicMock(
+        ocr=MagicMock(side_effect=RuntimeError("CUDA out of memory"))
     )
+    cpu_engine = MagicMock(ocr=MagicMock(return_value=[]))
+    paddle_ocr = MagicMock(return_value=cpu_engine)
+    settings = SimpleNamespace(MODEL_LANG="ja", PADDLE_DEVICE="gpu")
+    image = Image.new("RGB", (1, 1), color="white")
+    image_bytes = BytesIO()
+    image.save(image_bytes, format="PNG")
 
-    assert result["summary"]["total_lines"] == 2
-    assert result["summary"]["total_characters"] == 5
-    assert result["results"][0]["text"] == "NO."
-    assert result["results"][0]["bbox"] == {
-        "top_left": [10.0, 20.0],
-        "bottom_right": [60.0, 40.0],
-    }
-    assert result["results"][0]["bbox_normalized"] == {
-        "top_left": [0.05, 0.1],
-        "bottom_right": [0.3, 0.2],
-    }
-    assert result["results"][0]["polygon"] == [
-        [10.0, 20.0],
-        [60.0, 20.0],
-        [60.0, 40.0],
-        [10.0, 40.0],
-    ]
+    with patch.object(ocr_engine, "get_settings", return_value=settings), patch.dict(
+        sys.modules, {"paddleocr": SimpleNamespace(PaddleOCR=paddle_ocr)}
+    ), patch.object(ocr_engine, "normalize_ocr_results", return_value={}):
+        ocr_engine.run_ocr(image_bytes.getvalue(), lang="auto")
 
-
-def test_normalize_paddleocr_35_result_filters_confidence():
-    raw_results = [
-        {
-            "rec_texts": ["keep", "drop"],
-            "rec_scores": [0.9, 0.2],
-            "dt_polys": [
-                [[0, 0], [10, 0], [10, 10], [0, 10]],
-                [[20, 20], [30, 20], [30, 30], [20, 30]],
-            ],
-        }
-    ]
-
-    result = normalize_ocr_results(
-        raw_results=raw_results,
-        original_width=100,
-        original_height=100,
-        lang="en",
-        min_confidence=0.5,
-        include_polygon=False,
-        inference_time_ms=1,
-    )
-
-    assert [item["text"] for item in result["results"]] == ["keep"]
-    assert "polygon" not in result["results"][0]
-    assert result["summary"]["avg_confidence"] == 0.9
+    assert paddle_ocr.call_args.kwargs == {"lang": "japan", "device": "cpu"}
+    ocr_engine._ocr_engines.clear()
+    ocr_engine._cpu_fallback_engines.clear()

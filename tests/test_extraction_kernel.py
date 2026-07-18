@@ -193,9 +193,8 @@ class TestExtractionKernelExtract:
         kernel = ExtractionKernel(source_registry)
         result = kernel.extract(schema, MOCK_OCR)
 
-        assert result.overall_confidence > 0.0
-        scored = [v for v in result.confidence.values() if v > 0]
-        expected = round(sum(scored) / len(scored), 4)
+        all_scores = list(result.confidence.values())
+        expected = round(sum(all_scores) / len(all_scores), 4)
         assert result.overall_confidence == expected
 
     def test_result_has_schema_metadata(self) -> None:
@@ -228,3 +227,124 @@ class TestExtractionKernelIntegration:
         # All fields should have None values since no sources are registered
         for fr in result.fields.values():
             assert fr.value is None
+
+
+# -- Regression tests for kernel bugs -------------------------------------------
+
+class TestRegressionBug1CrossFieldTaxValidation:
+    """Bug 1: cross_field tax validation never fired because referenced fields
+    didn't exist. Now flat `subtotal` + `tax_amount` fields back the check."""
+
+    def test_cross_field_eq_fires_on_mismatch_with_flat_fields(self) -> None:
+        schema = SchemaDefinition(
+            id="test-cross-bug1",
+            version="1.0.0",
+            document_type="test",
+            review_threshold=0.5,
+            fields=[
+                FieldDefinition(name="total_amount", type="money", required=True,
+                                sources=["layout_label_total"],  # 100000
+                                cross_field=[{"eq": "subtotal + tax_amount"}],
+                                cross_field_tolerance=50),
+                FieldDefinition(name="subtotal", type="money", required=False,
+                                sources=["layout_label_total"]),  # 100000 from MOCK_OCR
+                FieldDefinition(name="tax_amount", type="money", required=False,
+                                sources=[]),  # None -> all_found=False -> no error
+            ],
+        )
+        kernel = ExtractionKernel(source_registry)
+        result = kernel.extract(schema, MOCK_OCR)
+
+        # No error because tax_amount is None and cross_field only fires when all
+        # referenced fields resolve; verify it doesn't fire spuriously.
+        assert not any(e["code"] == "cross_field_eq" for e in result.validation_errors)
+
+    def test_cross_field_eq_triggers_when_subtotal_plus_tax_mismatch(self) -> None:
+        # Build a schema where subtotal/tax_amount add up wrong vs total_amount
+        # and confirm the validator catches it via _run_validators directly.
+        fields = {
+            "total_amount": FieldResult(value=100000, confidence=0.9),
+            "subtotal": FieldResult(value=80000, confidence=0.9),
+            "tax_amount": FieldResult(value=10000, confidence=0.9),  # 80000+10000=90000 != 100000
+        }
+        schema = SchemaDefinition(
+            id="t", version="1.0.0", document_type="t", review_threshold=0.5,
+            fields=[
+                FieldDefinition(name="total_amount", type="money", sources=[],
+                                cross_field=[{"eq": "subtotal + tax_amount"}],
+                                cross_field_tolerance=50),
+                FieldDefinition(name="subtotal", type="money", sources=[]),
+                FieldDefinition(name="tax_amount", type="money", sources=[]),
+            ],
+        )
+        kernel = ExtractionKernel(source_registry)
+        errors, warnings = kernel._run_validators(schema, fields)
+        cross_field_errors = [e for e in errors if e["code"] == "cross_field_eq"]
+        assert len(cross_field_errors) == 1
+        assert cross_field_errors[0]["field"] == "total_amount"
+
+
+class TestRegressionBug2OverallConfidenceAveragesAll:
+    """Bug 2: zero/missing fields were excluded, letting one strong field auto-approve."""
+
+    def test_one_of_seven_strong_fields_does_not_auto_approve(self) -> None:
+        # Schema with 7 required fields; only one will get a value from MOCK_OCR.
+        schema = SchemaDefinition(
+            id="test-bug2",
+            version="1.0.0",
+            document_type="test",
+            review_threshold=0.85,
+            fields=[
+                FieldDefinition(name="total_amount", type="money", required=True,
+                                sources=["layout_label_total"]),
+                FieldDefinition(name="issuer_name", type="string", required=True,
+                                sources=["regex_vendor"]),
+                FieldDefinition(name="issuer_registration_number", type="string", required=True,
+                                sources=["regex_reg_no"]),
+                FieldDefinition(name="transaction_date", type="string", required=True,
+                                sources=["regex_wareki"]),
+                FieldDefinition(name="invoice_number", type="string", required=True,
+                                sources=[]),
+                FieldDefinition(name="merchant_address", type="string", required=True,
+                                sources=[]),
+                FieldDefinition(name="phone", type="string", required=True,
+                                sources=[]),
+            ],
+        )
+        kernel = ExtractionKernel(source_registry)
+        result = kernel.extract(schema, MOCK_OCR)
+
+        # overall_confidence must average over ALL 7 fields (incl. zeros)
+        all_scores = list(result.confidence.values())
+        expected = round(sum(all_scores) / len(all_scores), 4)
+        assert result.overall_confidence == expected
+        # With one strong and six zero-valued fields, the average is well below 0.85
+        assert result.overall_confidence < 0.85
+        # Missing required fields also force needs_review
+        assert result.needs_review is True
+
+
+class TestRegressionBug3RequiredFieldsEnforced:
+    """Bug 3: required field check was missing in _run_validators."""
+
+    def test_required_field_with_none_value_produces_error(self) -> None:
+        schema = SchemaDefinition(
+            id="test-bug3",
+            version="1.0.0",
+            document_type="test",
+            review_threshold=0.5,
+            fields=[
+                FieldDefinition(name="total_amount", type="money", required=True,
+                                sources=["layout_label_total"]),
+                FieldDefinition(name="missing_required", type="string", required=True,
+                                sources=[]),  # will be None
+            ],
+        )
+        kernel = ExtractionKernel(source_registry)
+        result = kernel.extract(schema, MOCK_OCR)
+
+        required_errors = [
+            e for e in result.validation_errors if e["code"] == "required"
+        ]
+        assert any(e["field"] == "missing_required" for e in required_errors)
+        assert result.needs_review is True
